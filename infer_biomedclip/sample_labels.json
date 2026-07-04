@@ -1,0 +1,30 @@
+[
+    {
+        "filename": "a.jpg",
+        "malignancy": 0,
+        "FTCPTC": 1,
+        "LNM_CN01": 1,
+        "tirads": 2
+    },
+    {
+        "filename": "b.jpg",
+        "malignancy": 1,
+        "FTCPTC": 0,
+        "LNM_CN01": 0,
+        "tirads": 4
+    },
+    {
+        "filename": "c.jpg",
+        "malignancy": 0,
+        "FTCPTC": 0,
+        "LNM_CN01": 0,
+        "tirads": 1
+    },
+    {
+        "filename": "d.jpg",
+        "malignancy": 1,
+        "FTCPTC": 1,
+        "LNM_CN01": 1,
+        "tirads": 5
+    }
+]

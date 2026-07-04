@@ -1,0 +1,67 @@
+# ====================
+# Python
+# ====================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Type checkers / linters
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# ====================
+# IDE / Editor
+# ====================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ====================
+# OS
+# ====================
+.DS_Store
+Thumbs.db
+
+# ====================
+# 模型权重文件
+# ====================
+*.pth
+*.pt
+*.pth.tar
+*.bin
+*.safetensors
+*.ckpt
+*.onnx
+*.tflite
+*.h5
+*.tar
+*.zip
+*.gz
+
+# ====================
+# 运行结果 / 预测输出
+# ====================
+results/
+predictions/
+preds/
+pred/
+output/
+outputs/
+
+# 注意：logs/ 目录保留，*.log 文件不忽略

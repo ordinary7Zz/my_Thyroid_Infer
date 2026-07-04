@@ -1,0 +1,23 @@
+# ============================================================
+# MedSigLIP 分类推理 依赖（独立版本）
+# ============================================================
+
+# 核心深度学习框架
+torch>=2.0.0
+torchvision>=0.15.0
+
+# HuggingFace 生态（用于加载 MedSigLIP 预训练权重）
+transformers>=4.45.0
+huggingface_hub>=0.20.0
+
+# 数据处理
+numpy>=1.24.0
+pandas>=2.0.0
+opencv-python>=4.8.0
+Pillow>=10.0.0
+
+# 图像预处理
+albumentations>=1.3.0
+
+# 评估指标
+scikit-learn>=1.3.0
