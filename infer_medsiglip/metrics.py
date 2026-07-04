@@ -46,7 +46,8 @@ def compute_metric(name, labels, preds, probs, is_binary):
         if is_binary:
             return average_precision_score(labels, probs[:, 1])
         else:
-            return average_precision_score(labels, probs, average="macro")
+            y_onehot = np.eye(probs.shape[1])[labels]
+            return average_precision_score(y_onehot, probs, average="macro")
     elif name == "accuracy":
         return accuracy_score(labels, preds)
     elif name == "precision":
@@ -63,21 +64,23 @@ def compute_metric(name, labels, preds, probs, is_binary):
 
 
 def bootstrap_ci(name, labels, preds, probs, is_binary,
-                 n_bootstrap=2000, seed=42, confidence=0.95):
+                 n_bootstrap=2000, seed=0, confidence=0.95):
     """Bootstrap 计算 95% 置信区间。
+    点估计取 Bootstrap 采样均值，CI 取百分位区间。
+    与 dinov3_unet_multitask 的实现方式一致。
 
     Returns:
-        (lower, upper): 95% CI 下界和上界
+        (mean, lower, upper): 均值和 95% CI 下界、上界
     """
     n = len(labels)
     if n == 0:
-        return float("nan"), float("nan")
+        return float("nan"), float("nan"), float("nan")
 
-    rng = np.random.RandomState(seed)
+    rng = np.random.default_rng(seed)
     scores = []
 
     for _ in range(n_bootstrap):
-        idx = rng.choice(n, n, replace=True)
+        idx = rng.integers(0, n, n)
         try:
             score = compute_metric(
                 name, labels[idx], preds[idx], probs[idx], is_binary
@@ -88,16 +91,19 @@ def bootstrap_ci(name, labels, preds, probs, is_binary,
             continue
 
     if len(scores) == 0:
-        return float("nan"), float("nan")
+        return float("nan"), float("nan"), float("nan")
 
+    mean = float(np.mean(scores))
     alpha = 1.0 - confidence
     lower = np.percentile(scores, alpha / 2 * 100)
     upper = np.percentile(scores, (1 - alpha / 2) * 100)
-    return float(lower), float(upper)
+    return mean, float(lower), float(upper)
 
 
 def compute_all_metrics(labels, preds, probs, is_binary, n_bootstrap=2000):
     """计算所有指标及其 95% CI。
+
+    点估计取 Bootstrap 采样均值，与 dinov3_unet_multitask 一致。
 
     Args:
         labels: (N,) int 真实标签
@@ -111,18 +117,12 @@ def compute_all_metrics(labels, preds, probs, is_binary, n_bootstrap=2000):
     """
     results = {}
     for name in METRIC_NAMES:
-        # 点估计
-        try:
-            point = compute_metric(name, labels, preds, probs, is_binary)
-        except Exception:
-            point = float("nan")
-
-        # Bootstrap CI
-        lower, upper = bootstrap_ci(
+        # Bootstrap CI + 点估计（取 Bootstrap 均值）
+        mean, lower, upper = bootstrap_ci(
             name, labels, preds, probs, is_binary,
             n_bootstrap=n_bootstrap,
         )
-        results[name] = {"value": point, "ci_lower": lower, "ci_upper": upper}
+        results[name] = {"value": mean, "ci_lower": lower, "ci_upper": upper}
 
     return results
 

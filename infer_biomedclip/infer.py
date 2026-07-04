@@ -246,8 +246,8 @@ def parse_args():
                         help="评估结果保存路径 (.log)；未指定时自动在 --output 同级目录生成")
     parser.add_argument("--n_bootstrap", type=int, default=2000,
                         help="Bootstrap 迭代次数（默认 2000，用于计算 95%% 置信区间）")
-    parser.add_argument("--seed", type=int, default=42,
-                        help="随机种子（默认 42，确保 Bootstrap 结果可复现）")
+    parser.add_argument("--seed", type=int, default=0,
+                        help="随机种子（默认 0，确保 Bootstrap 结果可复现）")
 
     return parser.parse_args()
 
@@ -439,14 +439,15 @@ def _safe_auprc(y_true, y_prob, num_classes):
     """
     计算 AUPRC (Average Precision)。
     - 二分类: 使用正类（index=1）概率
-    - 多分类: macro-average
+    - 多分类: one-hot + macro-average
     返回 float 或 nan
     """
     try:
         if num_classes == 2:
             return average_precision_score(y_true, y_prob[:, 1])
         else:
-            return average_precision_score(y_true, y_prob, average="macro")
+            y_onehot = np.eye(num_classes)[y_true]
+            return average_precision_score(y_onehot, y_prob, average="macro")
     except (ValueError, IndexError):
         return float("nan")
 
@@ -454,57 +455,51 @@ def _safe_auprc(y_true, y_prob, num_classes):
 def compute_point_metrics(y_true, y_pred, y_prob, num_classes):
     """
     计算单次（点估计）分类性能指标。
+    二分类用 binary average，多分类用 macro average。
     返回 dict。
     """
+    is_binary = (num_classes == 2)
+    avg = "binary" if is_binary else "macro"
+
     metrics = {
         "AUROC": _safe_auroc(y_true, y_prob, num_classes),
         "AUPRC": _safe_auprc(y_true, y_prob, num_classes),
         "Accuracy": accuracy_score(y_true, y_pred),
-        "Precision_macro": precision_score(y_true, y_pred, average="macro",
-                                           zero_division=0),
-        "Recall_macro": recall_score(y_true, y_pred, average="macro",
-                                      zero_division=0),
-        "F1_macro": f1_score(y_true, y_pred, average="macro", zero_division=0),
+        "Precision": precision_score(y_true, y_pred, average=avg,
+                                     zero_division=0),
+        "Recall": recall_score(y_true, y_pred, average=avg,
+                               zero_division=0),
+        "F1": f1_score(y_true, y_pred, average=avg, zero_division=0),
     }
-
-    # 二分类：正类额外指标
-    if num_classes == 2:
-        metrics["Precision_pos"] = precision_score(y_true, y_pred,
-                                                    pos_label=1,
-                                                    zero_division=0)
-        metrics["Recall_pos"] = recall_score(y_true, y_pred, pos_label=1,
-                                              zero_division=0)
-        metrics["F1_pos"] = f1_score(y_true, y_pred, pos_label=1,
-                                     zero_division=0)
 
     return metrics
 
 
 def bootstrap_ci(y_true, y_pred, y_prob, num_classes,
-                 n_bootstrap=2000, seed=42, ci=95):
+                 n_bootstrap=2000, seed=0, ci=0.95):
     """
     Bootstrap 95% 置信区间。
-    对每个指标，通过重采样计算经验分布，取百分位区间。
+    点估计取 Bootstrap 采样均值，CI 取百分位区间。
+    与 dinov3_unet_multitask 的实现方式一致。
 
     返回:
-        results: dict {metric_name: (point_estimate, ci_lower, ci_upper)}
+        results: dict {metric_name: (mean, ci_lower, ci_upper)}
+        valid_iters: 有效迭代次数
     """
-    rng = np.random.RandomState(seed)
+    rng = np.random.default_rng(seed)
     n = len(y_true)
-    alpha = (100 - ci) / 2  # 2.5 for 95% CI
+    alpha = 1.0 - ci
 
     metric_names = [
         "AUROC", "AUPRC", "Accuracy",
-        "Precision_macro", "Recall_macro", "F1_macro",
+        "Precision", "Recall", "F1",
     ]
-    if num_classes == 2:
-        metric_names += ["Precision_pos", "Recall_pos", "F1_pos"]
 
     boot_values = {name: [] for name in metric_names}
 
     valid_iters = 0
     for _ in tqdm(range(n_bootstrap), desc="Bootstrap", leave=False):
-        idx = rng.randint(0, n, n)
+        idx = rng.integers(0, n, n)
         bt_true = y_true[idx]
         bt_pred = y_pred[idx]
         bt_prob = y_prob[idx]
@@ -526,19 +521,16 @@ def bootstrap_ci(y_true, y_pred, y_prob, num_classes,
         print("  ⚠ Bootstrap 有效迭代次数为 0，无法计算置信区间")
         valid_iters = 1
 
-    # 点估计
-    point_metrics = compute_point_metrics(y_true, y_pred, y_prob, num_classes)
-
     results = {}
     for name in metric_names:
-        point = point_metrics[name]
         vals = np.array(boot_values[name])
         if len(vals) == 0:
-            ci_lo, ci_hi = float("nan"), float("nan")
+            mean, ci_lo, ci_hi = float("nan"), float("nan"), float("nan")
         else:
-            ci_lo = float(np.percentile(vals, alpha))
-            ci_hi = float(np.percentile(vals, 100 - alpha))
-        results[name] = (point, ci_lo, ci_hi)
+            mean = float(vals.mean())
+            ci_lo = float(np.percentile(vals, 100 * alpha / 2))
+            ci_hi = float(np.percentile(vals, 100 * (1 - alpha / 2)))
+        results[name] = (mean, ci_lo, ci_hi)
 
     return results, valid_iters
 
@@ -565,25 +557,20 @@ def format_eval_report(results, cm, class_names, num_samples,
     lines.append("  📊 平均性能指标 (95% CI):")
     lines.append("  " + "-" * 56)
 
+    avg_label = "binary" if num_classes == 2 else "macro"
     main_metrics = [
-        ("AUROC",           "AUROC"),
-        ("AUPRC",           "AUPRC"),
-        ("Accuracy",        "Accuracy"),
-        ("Precision_macro", "Precision (macro)"),
-        ("Recall_macro",    "Recall (macro)"),
-        ("F1_macro",        "F1 (macro)"),
+        ("AUROC",      "AUROC"),
+        ("AUPRC",      "AUPRC"),
+        ("Accuracy",   "Accuracy"),
+        ("Precision",  f"Precision ({avg_label})"),
+        ("Recall",     f"Recall ({avg_label})"),
+        ("F1",         f"F1 ({avg_label})"),
     ]
-    if num_classes == 2:
-        main_metrics += [
-            ("Precision_pos", "Precision (pos)"),
-            ("Recall_pos",    "Recall (pos)"),
-            ("F1_pos",       "F1 (pos)"),
-        ]
 
     for key, label in main_metrics:
         if key in results:
-            point, ci_lo, ci_hi = results[key]
-            lines.append(f"  {label:<22s}: {point:.4f}  "
+            mean, ci_lo, ci_hi = results[key]
+            lines.append(f"  {label:<22s}: {mean:.4f}  "
                          f"({ci_lo:.4f} - {ci_hi:.4f})")
 
     # ---- 混淆矩阵 ----

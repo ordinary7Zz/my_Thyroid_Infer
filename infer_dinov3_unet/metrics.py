@@ -58,15 +58,12 @@ class HD95(nn.Module):
         pred_np = _to_bool_2d(predict)
         target_np = _to_bool_2d(target)
 
-        if not np.any(target_np):
-            return None
-
         pred_empty = not np.any(pred_np)
+        gt_empty = not np.any(target_np)
 
-        if pred_empty:
-            h, w = pred_np.shape
-            max_distance = float(np.sqrt(h * h + w * w))
-            return torch.tensor(max_distance, dtype=torch.float32)
+        # 边界情况统一处理: pred 或 gt 为空时返回 0.0
+        if pred_empty or gt_empty:
+            return torch.tensor(0.0, dtype=torch.float32)
 
         hd1 = self.hd_distance(pred_np, target_np)
         hd2 = self.hd_distance(target_np, pred_np)

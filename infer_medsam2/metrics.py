@@ -25,14 +25,15 @@ def compute_hd95(pred: np.ndarray, gt: np.ndarray) -> float:
     """计算单张图像的 95% Hausdorff 距离 (像素单位)。
 
     pred / gt: 二值 (0/1) numpy 数组, shape [H, W]
+
+    边界情况统一处理:
+      - pred 和 gt 都有前景: 正常计算
+      - pred 有前景但 gt 为空（假阳性）: 返回 0.0
+      - pred 为空但 gt 有前景（假阴性）: 返回 0.0
+      - pred 和 gt 都为空（真阴性）: 返回 0.0
     """
-    # 如果预测或 GT 为空，退化为单点以避免数值错误
-    if pred.sum() == 0:
-        pred = pred.copy()
-        pred[0, 0] = 1
-    if gt.sum() == 0:
-        gt = gt.copy()
-        gt[0, 0] = 1
+    if pred.sum() == 0 or gt.sum() == 0:
+        return 0.0
 
     # pred -> gt 的距离
     dt_gt = edt(np.logical_not(gt))

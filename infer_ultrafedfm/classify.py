@@ -141,13 +141,15 @@ def load_labels(label_file, label_field, image_names):
 # ---------------------------------------------------------------------------
 # Metrics
 # ---------------------------------------------------------------------------
-def bootstrap_ci(metric_fn, y_true, y_pred, y_score, n_bootstrap=2000, seed=42, alpha=0.05):
-    """Bootstrap 95% confidence interval."""
-    rng = np.random.RandomState(seed)
+def bootstrap_ci(metric_fn, y_true, y_pred, y_score, n_bootstrap=2000, seed=0, alpha=0.05):
+    """Bootstrap 95% confidence interval.
+    与 dinov3_unet_multitask 的实现方式一致：使用 default_rng，点估计取 Bootstrap 均值。
+    """
+    rng = np.random.default_rng(seed)
     n = len(y_true)
-    indices = rng.randint(0, n, size=(n_bootstrap, n))
     values = []
-    for idx in indices:
+    for _ in range(n_bootstrap):
+        idx = rng.integers(0, n, n)
         yt = y_true[idx]
         yp = y_pred[idx]
         ys = y_score[idx] if y_score is not None else None
@@ -160,13 +162,18 @@ def bootstrap_ci(metric_fn, y_true, y_pred, y_score, n_bootstrap=2000, seed=42, 
 
     if len(values) == 0:
         return float('nan'), float('nan')
+    mean = float(np.mean(values))
     lower = np.percentile(values, 100 * alpha / 2)
     upper = np.percentile(values, 100 * (1 - alpha / 2))
-    return float(lower), float(upper)
+    return mean, float(lower), float(upper)
 
 
 def compute_all_metrics(y_true, y_pred, y_score, nb_classes, n_bootstrap=2000):
-    """Compute AUROC, AUPRC, Accuracy, Precision, F1, Recall (macro) + CI95."""
+    """Compute AUROC, AUPRC, Accuracy, Precision, F1, Recall + CI95.
+    
+    二分类用 binary average，多分类用 macro average。
+    点估计取 Bootstrap 采样均值，与 dinov3_unet_multitask 一致。
+    """
     from sklearn.metrics import (
         roc_auc_score, average_precision_score,
         accuracy_score, precision_score, f1_score, recall_score,
@@ -186,41 +193,18 @@ def compute_all_metrics(y_true, y_pred, y_score, nb_classes, n_bootstrap=2000):
         print('Auto-remapped true labels from {}-{} to 0-{}'.format(
             offset, label_max, label_max - offset))
 
-    metrics = {}
+    is_binary = (nb_classes == 2)
+    avg = 'binary' if is_binary else 'macro'
 
-    # --- point estimates ---
-    if nb_classes == 2:
-        # binary: use positive-class probability
-        score_pos = y_score[:, 1]
-        auroc = roc_auc_score(y_true, score_pos)
-        auprc = average_precision_score(y_true, score_pos)
-    else:
-        auroc = roc_auc_score(y_true, y_score, multi_class='ovr', average='macro')
-        auprc = average_precision_score(
-            np.eye(nb_classes)[y_true], y_score, average='macro'
-        )
-
-    accuracy = accuracy_score(y_true, y_pred)
-    precision = precision_score(y_true, y_pred, average='macro', zero_division=0)
-    f1 = f1_score(y_true, y_pred, average='macro', zero_division=0)
-    recall = recall_score(y_true, y_pred, average='macro', zero_division=0)
-
-    metrics['AUROC'] = float(auroc)
-    metrics['AUPRC'] = float(auprc)
-    metrics['Accuracy'] = float(accuracy)
-    metrics['Precision'] = float(precision)
-    metrics['F1'] = float(f1)
-    metrics['Recall'] = float(recall)
-
-    # --- CI95 via bootstrap ---
+    # --- metric functions for bootstrap ---
     def _auroc_fn(yt, yp, ys):
-        if nb_classes == 2:
+        if is_binary:
             return roc_auc_score(yt, ys[:, 1])
         else:
             return roc_auc_score(yt, ys, multi_class='ovr', average='macro')
 
     def _auprc_fn(yt, yp, ys):
-        if nb_classes == 2:
+        if is_binary:
             return average_precision_score(yt, ys[:, 1])
         else:
             return average_precision_score(np.eye(nb_classes)[yt], ys, average='macro')
@@ -229,13 +213,13 @@ def compute_all_metrics(y_true, y_pred, y_score, nb_classes, n_bootstrap=2000):
         return accuracy_score(yt, yp)
 
     def _prec_fn(yt, yp, ys):
-        return precision_score(yt, yp, average='macro', zero_division=0)
+        return precision_score(yt, yp, average=avg, zero_division=0)
 
     def _f1_fn(yt, yp, ys):
-        return f1_score(yt, yp, average='macro', zero_division=0)
+        return f1_score(yt, yp, average=avg, zero_division=0)
 
     def _rec_fn(yt, yp, ys):
-        return recall_score(yt, yp, average='macro', zero_division=0)
+        return recall_score(yt, yp, average=avg, zero_division=0)
 
     fns = {
         'AUROC': _auroc_fn,
@@ -246,8 +230,11 @@ def compute_all_metrics(y_true, y_pred, y_score, nb_classes, n_bootstrap=2000):
         'Recall': _rec_fn,
     }
 
+    # --- CI95 via bootstrap (点估计取 Bootstrap 均值) ---
+    metrics = {}
     for name, fn in fns.items():
-        lo, hi = bootstrap_ci(fn, y_true, y_pred, y_score, n_bootstrap=n_bootstrap)
+        mean, lo, hi = bootstrap_ci(fn, y_true, y_pred, y_score, n_bootstrap=n_bootstrap)
+        metrics[name] = mean
         metrics['{}_CI95'.format(name)] = (lo, hi)
 
     return metrics
@@ -391,7 +378,7 @@ def main():
             f.write('Label field: {}\n'.format(args.label_field))
             f.write('Num samples (matched): {}\n'.format(len(valid_idx)))
             f.write('Bootstrap iterations: {}\n'.format(args.n_bootstrap))
-            f.write('Averaging: macro\n')
+            f.write('Averaging: {}\n'.format('binary' if args.nb_classes == 2 else 'macro'))
             f.write('-' * 60 + '\n')
             f.write('{:<15s} {:>10s}   {:>12s}\n'.format('Metric', 'Value', 'CI95'))
             f.write('-' * 60 + '\n')
