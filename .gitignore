@@ -54,14 +54,3 @@ Thumbs.db
 *.zip
 *.gz
 
-# ====================
-# 运行结果 / 预测输出
-# ====================
-results/
-predictions/
-preds/
-pred/
-output/
-outputs/
-
-# 注意：logs/ 目录保留，*.log 文件不忽略
