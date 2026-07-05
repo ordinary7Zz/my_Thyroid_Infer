@@ -6,9 +6,6 @@ __pycache__/
 *$py.class
 *.so
 
-# Jupyter Notebook checkpoints
-**/.ipynb_checkpoints/
-
 # Distribution / packaging
 build/
 dist/
@@ -56,6 +53,11 @@ Thumbs.db
 *.tar
 *.zip
 *.gz
+
+# ====================
+# Jupyter
+# ====================
+.ipynb_checkpoints/
 
 datasets/
 

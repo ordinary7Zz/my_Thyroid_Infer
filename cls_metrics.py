@@ -78,24 +78,47 @@ def compute_point_metrics(y_true, y_pred, y_prob, num_classes):
 
 
 def _safe_auroc(y_true, y_prob, num_classes):
-    """计算 AUROC。二分类用正类概率，多分类用 macro OvR。"""
+    """计算 AUROC。二分类用正类概率，多分类用 macro OvR。
+
+    多分类时若某些类别在 y_true 中无正样本（测试集类别不全），
+    则跳过该类别，只对有正样本的类别计算 OvR AUC 后取宏平均。
+    这与 sklearn ``average="macro"`` 在类别齐全时结果完全一致；
+    区别仅在于缺失类别不再导致整体返回 nan。
+    """
     try:
         if num_classes == 2:
             return roc_auc_score(y_true, y_prob[:, 1])
         else:
-            return roc_auc_score(y_true, y_prob, multi_class="ovr", average="macro")
+            present = np.unique(y_true)
+            if len(present) < 2:
+                return float("nan")
+            aucs = []
+            for c in present:
+                binary_y = (y_true == c).astype(int)
+                aucs.append(roc_auc_score(binary_y, y_prob[:, c]))
+            return float(np.mean(aucs))
     except (ValueError, IndexError):
         return float("nan")
 
 
 def _safe_auprc(y_true, y_prob, num_classes):
-    """计算 AUPRC (Average Precision)。二分类用正类概率，多分类用 macro。"""
+    """计算 AUPRC (Average Precision)。二分类用正类概率，多分类用 macro。
+
+    多分类时若某些类别在 y_true 中无正样本，则跳过该类别，
+    只对有正样本的类别计算 AP 后取宏平均，与 _safe_auroc 保持一致。
+    """
     try:
         if num_classes == 2:
             return average_precision_score(y_true, y_prob[:, 1])
         else:
-            y_onehot = np.eye(num_classes)[y_true]
-            return average_precision_score(y_onehot, y_prob, average="macro")
+            present = np.unique(y_true)
+            if len(present) < 2:
+                return float("nan")
+            aps = []
+            for c in present:
+                binary_y = (y_true == c).astype(int)
+                aps.append(average_precision_score(binary_y, y_prob[:, c]))
+            return float(np.mean(aps))
     except (ValueError, IndexError):
         return float("nan")
 
@@ -129,6 +152,15 @@ def bootstrap_ci(y_true, y_pred, y_prob, num_classes,
     y_prob = np.asarray(y_prob)
     n = len(y_true)
     alpha = 1.0 - ci
+
+    # 类别覆盖检查：测试集中可能缺少某些类别
+    if num_classes > 2:
+        present = set(np.unique(y_true).tolist())
+        all_classes = set(range(num_classes))
+        missing = sorted(all_classes - present)
+        if missing:
+            print(f"  ⚠ 测试集仅含 {len(present)}/{num_classes} 个类别 "
+                  f"(缺失: {missing})，AUROC/AUPRC 将仅对存在的类别取宏平均")
 
     boot_values = {name: [] for name in METRIC_ORDER}
     valid_iters = 0
