@@ -532,8 +532,9 @@ def preflight_check(tasks, models_filter=None):
         if not os.path.isfile(p):
             missing.append(("文件", desc, path, p))
 
-    # 输出根目录
-    _check_dir(CONFIG["output_root"], "output_root")
+    # 输出根目录（运行时自动创建，预检查只确保父目录可写）
+    out_root = _resolve(CONFIG["output_root"])
+    os.makedirs(out_root, exist_ok=True)
 
     for task_id in tasks:
         dep = _TASK_DEPS[task_id]
