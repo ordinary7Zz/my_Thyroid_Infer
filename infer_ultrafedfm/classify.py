@@ -124,16 +124,19 @@ def run_inference(data_loader, model, device, nb_classes):
 # ---------------------------------------------------------------------------
 # Label loading
 # ---------------------------------------------------------------------------
-def load_labels(label_file, label_field, image_names):
+def load_labels(label_file, label_field, image_names, nb_classes):
     """Load labels from JSON, keyed by image filename.
 
-    Returns a dict {image_name: int_label} and a list of true labels
-    aligned with image_names (None if not found).
+    自动检测标签偏移：若标签范围为 [1, nb_classes] 则减 1 转为 0-indexed。
+    例如 TIRADS 标签 1-5 → 0-4，与模型输出对齐。
+
+    Returns a list of true labels aligned with image_names (None if not found).
     """
     with open(label_file, 'r', encoding='utf-8') as f:
         records = json.load(f)
 
     label_map = {}
+    raw_labels = []
     for rec in records:
         fname = rec['filename']
         if label_field in rec:
@@ -141,10 +144,23 @@ def load_labels(label_file, label_field, image_names):
             if label_val < 0:
                 continue
             label_map[fname] = label_val
+            raw_labels.append(label_val)
+
+    # 自动检测偏移
+    offset = 0
+    if raw_labels:
+        min_val = min(raw_labels)
+        max_val = max(raw_labels)
+        if min_val == 1 and max_val == nb_classes:
+            offset = 1
+            print(f"[自动检测] 标签范围 [{min_val}, {max_val}]，自动偏移 {offset}（{min_val}->{min_val - offset}, {max_val}->{max_val - offset}）")
 
     true_labels = []
     for name in image_names:
-        true_labels.append(label_map.get(name))
+        val = label_map.get(name)
+        if val is not None:
+            val = val - offset
+        true_labels.append(val)
 
     return true_labels
 
@@ -246,7 +262,7 @@ def main():
     if args.label_file is not None:
         if args.label_field is None:
             raise ValueError('--label_field is required when --label_file is provided')
-        true_labels = load_labels(args.label_file, args.label_field, image_names)
+        true_labels = load_labels(args.label_file, args.label_field, image_names, args.nb_classes)
 
     # --- save CSV ---
     header = ['image_name', 'predicted_class', 'confidence']
