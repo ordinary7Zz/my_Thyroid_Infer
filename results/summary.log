@@ -1,30 +1,30 @@
 统一推理汇总报告
-运行时间: 2026-07-05 15:30:20
+运行时间: 2026-07-05 16:01:49
 任务: gland, nodule, binary, tirads
-总计: 18  成功: 17  失败: 1  跳过: 0
+总计: 18  成功: 18  失败: 0  跳过: 0
 ======================================================================
 运行状态
 ----------------------------------------------------------------------
   任务         模型                        状态                         耗时
 ----------------------------------------------------------------------
-  gland      dinov3_unet               OK                       7.0s
-  gland      medsam2                   OK                       6.1s
-  gland      medsegx                   OK                       6.8s
-  gland      transunet                 OK                      10.3s
-  gland      ultrafedfm                OK                     101.5s
-  nodule     dinov3_unet               OK                       8.1s
-  nodule     medsam2                   OK                       8.8s
-  nodule     medsegx                   OK                       7.5s
-  nodule     transunet                 OK                       8.9s
-  nodule     ultrafedfm                OK                     227.7s
-  binary     biomedclip                OK                      19.8s
-  binary     medsiglip                 OK                      59.5s
-  binary     ultrafedfm                OK                      22.7s
-  binary     dinov3_unet_multitask     OK                      16.7s
-  tirads     biomedclip                OK                      19.2s
-  tirads     medsiglip                 OK                      78.3s
-  tirads     ultrafedfm                FAIL (rc=1)             16.2s
-  tirads     dinov3_unet_multitask     OK                      17.4s
+  gland      dinov3_unet               OK                       6.0s
+  gland      medsam2                   OK                       4.9s
+  gland      medsegx                   OK                      26.1s
+  gland      transunet                 OK                       5.2s
+  gland      ultrafedfm                OK                       9.5s
+  nodule     dinov3_unet               OK                       5.8s
+  nodule     medsam2                   OK                     245.7s
+  nodule     medsegx                   OK                       5.4s
+  nodule     transunet                 OK                       6.3s
+  nodule     ultrafedfm                OK                       8.9s
+  binary     biomedclip                OK                      16.6s
+  binary     medsiglip                 OK                      29.4s
+  binary     ultrafedfm                OK                      18.8s
+  binary     dinov3_unet_multitask     OK                      16.0s
+  tirads     biomedclip                OK                      18.7s
+  tirads     medsiglip                 OK                      43.9s
+  tirads     ultrafedfm                OK                      16.8s
+  tirads     dinov3_unet_multitask     OK                      16.7s
 
 ======================================================================
 性能指标 (mean + 95% CI)

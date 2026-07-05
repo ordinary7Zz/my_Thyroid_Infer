@@ -1,0 +1,11 @@
+2026-07-05 15:45:52 [INFO] ============================================================
+2026-07-05 15:45:52 [INFO] 权重:     /mnt/wangbd8/workspace/ThyroidAgent/my_Thyroid_Infer/infer_medsam2/checkpoints/TGVideo/checkpoint_10.pt
+2026-07-05 15:45:52 [INFO] 数据:     /mnt/wangbd8/workspace/ThyroidAgent/my_Thyroid_Infer/datasets/processed/images
+2026-07-05 15:45:52 [INFO] GT:       /mnt/wangbd8/workspace/ThyroidAgent/my_Thyroid_Infer/datasets/processed/gland_masks
+2026-07-05 15:45:52 [INFO] 设备:     cuda
+2026-07-05 15:45:52 [INFO] ============================================================
+2026-07-05 15:45:55 [INFO] ============================================================
+2026-07-05 15:45:55 [INFO] 评估样本数: 10
+2026-07-05 15:45:55 [INFO] Dice:  0.3986  (95% CI: [0.2443, 0.5791])
+2026-07-05 15:45:55 [INFO] HD95:  153.2826  (95% CI: [105.0137, 197.6434])
+2026-07-05 15:45:55 [INFO] ============================================================
