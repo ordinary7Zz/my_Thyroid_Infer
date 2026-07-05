@@ -28,6 +28,7 @@ Outputs
 
 import argparse
 import os
+import sys
 import time
 
 join = os.path.join
@@ -53,7 +54,12 @@ from data.datainfo import (
     organ_level_3_map,
     task_idx,
 )
-from utils.metrics import dice_coeff, hd95, bootstrap_ci
+from utils.metrics import dice_coeff, hd95
+# 使用项目级统一指标模块（覆盖 bootstrap_ci 实现）
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+from seg_metrics import bootstrap_ci
 
 IMG_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff', '.webp'}
 MASK_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff'}
@@ -347,7 +353,7 @@ def main():
         # Save predicted mask (optional)
         if args.output_dir:
             base = os.path.splitext(fname)[0]
-            out_path = join(args.output_dir, f"{base}_mask.png")
+            out_path = join(args.output_dir, f"{base}.png")
             Image.fromarray(pred_mask * 255).save(out_path)
 
         # Evaluate (optional)
@@ -370,9 +376,9 @@ def main():
         # Compute bootstrap CI (with fallback to simple mean)
         try:
             mean_dsc, dsc_lo, dsc_hi = bootstrap_ci(
-                dsc_arr, n_boot=args.n_boot, ci=args.ci)
+                dsc_arr, n_boot=args.n_boot, ci=args.ci / 100.0)
             mean_hd, hd_lo, hd_hi = bootstrap_ci(
-                hd95_arr, n_boot=args.n_boot, ci=args.ci)
+                hd95_arr, n_boot=args.n_boot, ci=args.ci / 100.0)
         except Exception as e:
             print(f"[Warning] bootstrap_ci failed: {e}")
             mean_dsc = float(np.nanmean(dsc_arr))

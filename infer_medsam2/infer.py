@@ -49,8 +49,13 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
+# 使用项目级统一指标模块
+_ROOT = os.path.dirname(SCRIPT_DIR)
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 from sam2.build_sam import build_sam2_video_predictor_npz
-from metrics import compute_dice, compute_hd95, mean_ci95, logits_to_binary
+from seg_metrics import compute_dice, compute_hd95, bootstrap_ci, logits_to_binary
 
 # ---------------------------------------------------------------------------
 # 常量
@@ -361,8 +366,8 @@ def main():
     # --- 汇总 ---
     if args.gt_dir:
         if len(dice_values) > 0:
-            dice_mean, dice_lo, dice_hi = mean_ci95(dice_values)
-            hd95_mean, hd95_lo, hd95_hi = mean_ci95(hd95_values)
+            dice_mean, dice_lo, dice_hi = bootstrap_ci(dice_values)
+            hd95_mean, hd95_lo, hd95_hi = bootstrap_ci(hd95_values)
             logger.info("=" * 60)
             logger.info(f"评估样本数: {len(dice_values)}")
             logger.info(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_lo:.4f}, {dice_hi:.4f}])")

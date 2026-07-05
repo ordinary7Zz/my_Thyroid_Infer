@@ -31,7 +31,11 @@ from PIL import Image
 from scipy.ndimage import zoom
 import torch
 from tqdm import tqdm
-from medpy import metric
+# 使用项目级统一指标模块
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+from seg_metrics import compute_dice, compute_hd95, bootstrap_ci
 
 from networks.vit_seg_modeling import VisionTransformer as ViT_seg
 from networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
@@ -165,46 +169,12 @@ def infer_one(net: torch.nn.Module, img_path: str,
 
 
 def calculate_metric(pred: np.ndarray, gt: np.ndarray) -> Tuple[float, float]:
-    """计算单例 Dice 和 HD95 (二分类)。
-
-    边界情况处理与项目原始 utils.calculate_metric_percase 保持一致：
-      - 有预测、有GT: 正常计算
-      - 有预测、无GT (假阳性): dice=1, hd95=0
-      - 无预测、有GT (假阴性): dice=0, hd95=0
-      - 都为空 (真阴性): dice=0, hd95=0
+    """计算单例 Dice 和 HD95，使用统一指标模块。
 
     Returns:
         (dice, hd95)
     """
-    pred_bin = (pred > 0).astype(np.uint8)
-    gt_bin = (gt > 0).astype(np.uint8)
-
-    if pred_bin.sum() > 0 and gt_bin.sum() > 0:
-        dice = metric.binary.dc(pred_bin, gt_bin)
-        hd95 = metric.binary.hd95(pred_bin, gt_bin)
-        return float(dice), float(hd95)
-    elif pred_bin.sum() > 0 and gt_bin.sum() == 0:
-        return 1.0, 0.0
-    else:
-        return 0.0, 0.0
-
-
-def mean_ci95(values: List[float]) -> Tuple[float, float, float]:
-    """正态近似法计算均值和 95% 置信区间。
-
-    Returns:
-        (mean, lower, upper)
-    """
-    arr = np.asarray(values, dtype=np.float64)
-    n = arr.size
-    if n == 0:
-        return float("nan"), float("nan"), float("nan")
-    mean = float(arr.mean())
-    if n == 1:
-        return mean, mean, mean
-    std = float(arr.std(ddof=1))
-    margin = 1.96 * std / np.sqrt(n)
-    return mean, mean - margin, mean + margin
+    return compute_dice(pred, gt), compute_hd95(pred, gt)
 
 
 # ---------------------------------------------------------------------------
@@ -275,8 +245,8 @@ def main():
             print("[WARN] No valid GT pairs found, no metrics computed.")
             return
 
-        dice_mean, dice_lo, dice_hi = mean_ci95(dice_list)
-        hd95_mean, hd95_lo, hd95_hi = mean_ci95(hd95_list)
+        dice_mean, dice_lo, dice_hi = bootstrap_ci(dice_list)
+        hd95_mean, hd95_lo, hd95_hi = bootstrap_ci(hd95_list)
 
         print("=" * 60)
         print(f"评估样本数: {n_eval}")

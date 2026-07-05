@@ -21,6 +21,7 @@ Usage examples:
 """
 
 import os
+import sys
 import cv2
 import torch
 import argparse
@@ -29,10 +30,15 @@ import numpy as np
 import torch.nn.functional as F
 import albumentations as A
 
+# 使用项目级统一指标模块
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+from seg_metrics import compute_dice, compute_hd95, bootstrap_ci
+
 from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 from albumentations.pytorch import ToTensorV2
-from scipy import ndimage
 
 import segmentation_models_pytorch as smp
 
@@ -108,68 +114,8 @@ def load_gt_mask(gt_dir, basename):
 
 
 # ---------------------------------------------------------------------------
-# Metrics
+# Metrics — 使用项目级统一指标模块 (seg_metrics)
 # ---------------------------------------------------------------------------
-def compute_dice(pred, gt):
-    """Dice coefficient for binary masks."""
-    pred = pred.astype(np.bool_)
-    gt = gt.astype(np.bool_)
-    intersection = (pred & gt).sum()
-    denom = pred.sum() + gt.sum()
-    if denom == 0:
-        return 1.0  # both empty → perfect
-    return 2.0 * intersection / denom
-
-
-def _hd_distance(x, y):
-    """One-directional HD: 95th percentile of distances from x foreground to y surface."""
-    indexes = np.nonzero(x)
-    distances = ndimage.distance_transform_edt(~y)
-    return float(np.percentile(distances[indexes], 95))
-
-
-def compute_hd95(pred, gt):
-    """Hausdorff distance 95th percentile for binary masks.
-
-    Computation method (aligned with project metrics.py):
-      - hd1 = p95(distances from pred foreground to gt surface)
-      - hd2 = p95(distances from gt foreground to pred surface)
-      - result = max(hd1, hd2)
-
-    Boundary handling:
-      - pred and gt both have foreground: normal computation
-      - pred has foreground but gt empty (false positive): 0.0
-      - pred empty but gt has foreground (false negative): 0.0
-      - pred and gt both empty (true negative): 0.0
-    """
-    pred = pred.astype(np.bool_)
-    gt = gt.astype(np.bool_)
-
-    pred_empty = not pred.any()
-    gt_empty = not gt.any()
-
-    if pred_empty or gt_empty:
-        return 0.0
-
-    hd1 = _hd_distance(pred, gt)
-    hd2 = _hd_distance(gt, pred)
-    return max(hd1, hd2)
-
-
-def bootstrap_ci(values, n_bootstrap=2000, seed=42, alpha=0.05):
-    """Bootstrap 95% CI for a list of per-sample metric values."""
-    values = np.array(values)
-    n = len(values)
-    if n == 0:
-        return float('nan'), float('nan')
-    rng = np.random.RandomState(seed)
-    boot_means = []
-    for _ in range(n_bootstrap):
-        idx = rng.randint(0, n, size=n)
-        boot_means.append(np.mean(values[idx]))
-    lower = np.percentile(boot_means, 100 * alpha / 2)
-    upper = np.percentile(boot_means, 100 * (1 - alpha / 2))
-    return float(lower), float(upper)
 
 
 # ---------------------------------------------------------------------------
@@ -307,22 +253,20 @@ def main():
             timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
             args.output_log = 'seg_metrics_{}.log'.format(timestamp)
 
-        dice_mean = float(np.mean(dice_list))
-        hd95_mean = float(np.mean(hd95_list))
-        dice_ci = bootstrap_ci(dice_list, n_bootstrap=args.n_bootstrap)
-        hd95_ci = bootstrap_ci(hd95_list, n_bootstrap=args.n_bootstrap)
+        dice_mean, dice_ci_lo, dice_ci_hi = bootstrap_ci(dice_list, n_boot=args.n_bootstrap)
+        hd95_mean, hd95_ci_lo, hd95_ci_hi = bootstrap_ci(hd95_list, n_boot=args.n_bootstrap)
 
         print("=" * 60)
         print(f"评估样本数: {len(dice_list)}")
-        print(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_ci[0]:.4f}, {dice_ci[1]:.4f}])")
-        print(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_ci[0]:.4f}, {hd95_ci[1]:.4f}])")
+        print(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_ci_lo:.4f}, {dice_ci_hi:.4f}])")
+        print(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_ci_lo:.4f}, {hd95_ci_hi:.4f}])")
         print("=" * 60)
 
         os.makedirs(os.path.dirname(os.path.abspath(args.output_log)), exist_ok=True)
         with open(args.output_log, 'w', encoding='utf-8') as f:
             f.write(f"评估样本数: {len(dice_list)}\n")
-            f.write(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_ci[0]:.4f}, {dice_ci[1]:.4f}])\n")
-            f.write(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_ci[0]:.4f}, {hd95_ci[1]:.4f}])\n")
+            f.write(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_ci_lo:.4f}, {dice_ci_hi:.4f}])\n")
+            f.write(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_ci_lo:.4f}, {hd95_ci_hi:.4f}])\n")
     elif args.gt_dir is not None and len(dice_list) == 0:
         print('No GT masks matched the image filenames — skipping metrics')
 

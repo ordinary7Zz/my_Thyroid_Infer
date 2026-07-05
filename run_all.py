@@ -125,11 +125,9 @@ _MASK_DIR_FLAGS = {
 def _add_mask_output(task_id, cmds):
     """为分割模型的命令追加掩码输出目录参数。
 
-    根据 CONFIG['save_masks'] 开关决定是否追加。
+    分割任务始终保存预测掩码（统一评估依赖掩码文件）。
     输出路径: results/<task>/<model>/masks/
     """
-    if not CONFIG.get("save_masks", False):
-        return cmds
     result = []
     for model_name, cmd in cmds:
         flag = _MASK_DIR_FLAGS.get(model_name)
@@ -720,7 +718,7 @@ def main():
             status = "OK" if rc == 0 else f"FAIL (rc={rc})"
             if rc == 0:
                 success += 1
-                # 解析指标日志
+                # 解析各脚本输出的 metrics.log（分割 + 分类统一使用此路径）
                 log_path = _find_metrics_log(task_id, model_name)
                 metrics = _parse_metrics_log(log_path)
                 if metrics:

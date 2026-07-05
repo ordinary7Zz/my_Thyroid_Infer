@@ -37,7 +37,12 @@ from torchvision import transforms
 from tqdm import tqdm
 
 from model import DINOv3_S_UNet
-from metrics import Dice, HD95, ECE, bootstrap_ci
+
+# 使用项目级统一指标模块
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+from seg_metrics import Dice, HD95, ECE, bootstrap_ci
 
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
@@ -479,10 +484,10 @@ def main():
 
     # 汇总指标 + CI95
     if compute_metrics:
-        dice_mean, dice_ci95 = bootstrap_ci(
+        dice_mean, dice_ci_lo, dice_ci_hi = bootstrap_ci(
             all_dice_values, n_boot=args.n_boot, ci=args.ci, seed=0
         )
-        hd95_mean, hd95_ci95 = bootstrap_ci(
+        hd95_mean, hd95_ci_lo, hd95_ci_hi = bootstrap_ci(
             all_hd_values, n_boot=args.n_boot, ci=args.ci, seed=0
         )
 
@@ -490,8 +495,8 @@ def main():
 
         print("=" * 60)
         print(f"评估样本数: {n_evaluated}")
-        print(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_ci95[0]:.4f}, {dice_ci95[1]:.4f}])")
-        print(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_ci95[0]:.4f}, {hd95_ci95[1]:.4f}])")
+        print(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_ci_lo:.4f}, {dice_ci_hi:.4f}])")
+        print(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_ci_lo:.4f}, {hd95_ci_hi:.4f}])")
         print("=" * 60)
 
         # 保存 JSON（逐样本明细，不打印）
@@ -504,12 +509,12 @@ def main():
             "evaluated_cases": n_evaluated,
             "Dice": {
                 "mean": round(dice_mean, 4),
-                "CI95": [round(dice_ci95[0], 4), round(dice_ci95[1], 4)],
+                "CI95": [round(dice_ci_lo, 4), round(dice_ci_hi, 4)],
                 "values": [round(float(v), 4) for v in all_dice_values],
             },
             "HD95": {
                 "mean": round(hd95_mean, 4),
-                "CI95": [round(hd95_ci95[0], 4), round(hd95_ci95[1], 4)],
+                "CI95": [round(hd95_ci_lo, 4), round(hd95_ci_hi, 4)],
                 "values": [round(float(v), 4) for v in all_hd_values],
             },
             "cases": case_records,
