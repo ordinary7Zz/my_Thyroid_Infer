@@ -1,6 +1,11 @@
 """
 MedSigLIP 分类模型（推理专用）
 从训练检查点加载模型架构和权重，结构与训练时完全一致以保证 state_dict 可正确加载。
+
+支持两种 checkpoint 格式:
+  1. 完整格式（旧）: state_dict 包含 full_model.* (含文本编码器)，约 4GB
+  2. 精简格式（新）: state_dict 只含 full_model.vision_model.* 和 classifier.*，约 1.6GB
+两种格式通过 strict=False 加载，自动兼容。
 """
 
 import torch
@@ -33,7 +38,7 @@ class MedSigLIPClassifier(nn.Module):
         super().__init__()
         self.num_classes = num_classes
 
-        # 加载完整 MedSigLIP 模型（与训练时保持一致）
+        # 加载完整 MedSigLIP 模型（预训练权重作为视觉编码器的初始权重）
         print(f"[Model] Loading from: {model_name} (local_files_only={local_files_only})")
         self.full_model = AutoModel.from_pretrained(
             model_name,
@@ -53,6 +58,27 @@ class MedSigLIPClassifier(nn.Module):
         self.classifier = nn.Linear(self.emb_dim, num_classes)
         nn.init.xavier_uniform_(self.classifier.weight)
         nn.init.zeros_(self.classifier.bias)
+
+    def load_state_dict(self, state_dict, strict=False, assign=False):
+        """支持完整和精简两种 checkpoint 格式。
+
+        - 完整格式: state_dict 含 full_model.* (含文本编码器) + classifier.*
+        - 精简格式: state_dict 只含 full_model.vision_model.* + classifier.*
+
+        两种格式都通过 strict=False 加载，自动忽略缺失的文本编码器 keys。
+        """
+        # 过滤掉文本编码器相关 keys（精简 checkpoint 不含这些，完整 checkpoint 有但不推理用不到）
+        filtered = {
+            k: v for k, v in state_dict.items()
+            if not k.startswith("full_model.text_model")
+            and not k.startswith("full_model.text")
+            and not k.startswith("full_model.text_projection")
+        }
+        removed = len(state_dict) - len(filtered)
+        if removed > 0:
+            print(f"[Model] 跳过 {removed} 个文本编码器 keys")
+
+        return super().load_state_dict(filtered, strict=False)
 
     def forward(self, pixel_values: torch.Tensor) -> dict:
         """
