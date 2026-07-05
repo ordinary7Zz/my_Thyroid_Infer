@@ -1,0 +1,11 @@
+============================================================
+权重:     /mnt/wangbd8/workspace/ThyroidAgent/my_Thyroid_Infer/infer_dinov3_unet/checkpoints/TGVideo/dino_unet_train_TGVideo_epoch_30.pth
+数据:     /mnt/wangbd8/workspace/ThyroidAgent/my_Thyroid_Infer/datasets/processed/images
+GT:       /mnt/wangbd8/workspace/ThyroidAgent/my_Thyroid_Infer/datasets/processed/gland_masks
+设备:     cuda
+============================================================
+============================================================
+评估样本数: 10
+Dice:  0.2301  (95% CI: [0.0562, 0.4478])
+HD95:  71.1851  (95% CI: [29.8942, 113.4734])
+============================================================
