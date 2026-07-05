@@ -10,14 +10,16 @@
   4. TIRADS五分类 (tirads) — biomedclip, medsiglip, ultrafedfm, dinov3_unet_multitask
 
 用法:
-  python run_all.py                    # 运行全部四个任务
-  python run_all.py --tasks gland nodule           # 只运行分割任务
-  python run_all.py --tasks binary tirads          # 只运行分类任务
-  python run_all.py --tasks gland --models dinov3_unet medsam2  # 指定模型
-  python run_all.py --dry_run          # 只打印命令不执行
+  python run_all.py                                              # 运行全部四个任务
+  python run_all.py --tasks gland nodule                          # 只运行分割任务
+  python run_all.py --tasks binary tirads                         # 只运行分类任务
+  python run_all.py --tasks gland --models dinov3_unet medsam2    # 指定模型
+  python run_all.py --dry_run                                     # 只打印命令不执行
+  python run_all.py --config path/to/config.yaml                  # 指定配置文件
 
 配置:
-  所有路径在下方 CONFIG 字典中集中管理，修改后即可使用。
+  所有路径在 config.yaml 中集中管理，其他代码也可读写该文件来修改配置。
+  默认使用脚本同目录下的 config.yaml，可用 --config 指定其他路径。
 """
 
 import argparse
@@ -28,83 +30,65 @@ import time
 from pathlib import Path
 
 # ============================================================================
-# 配置区：修改这里的路径即可
+# 路径常量与配置加载
 # ============================================================================
 
-CONFIG = {
-    # --- 数据集路径 ---
-    "datasets": {
-        "gland_images": "./datasets/TGVideo_PNG/test/image",
-        "gland_masks":  "./datasets/TGVideo_PNG/test/mask",
-        "nodule_images": "./datasets/TN3K/test/images",
-        "nodule_masks":  "./datasets/TN3K/test/masks",
-        "binary_images": "./datasets/TN3K/test/images",
-        "tirads_images": "./datasets/Cine-Clip/test/images",
-    },
+ROOT = Path(__file__).resolve().parent
+DEFAULT_CONFIG_PATH = ROOT / "config.yaml"
 
-    # --- 标签文件 ---
-    "labels": {
-        "binary_json":   "./datasets/TN3K/test/TN3K_test_label.json",
-        "binary_field":  "malignancy",
-        "tirads_json":   "./datasets/Cine-Clip/test/Cine-Clip_test_label.json",
-        "tirads_field":  "tirads",
-    },
+# 运行时由 main() 从 YAML 文件加载填充；模块级保留空 dict 以便函数引用
+CONFIG: dict = {}
 
-    # --- 模型权重 ---
-    "weights": {
-        # 分割 — 腺体
-        "gland": {
-            "dinov3_unet": "./infer_dinov3_unet/checkpoints/TG_Video/dino_unet_train_TGVideo_epoch_30.pth",
-            "medsam2":     "./infer_medsam2/checkpoints/TG_Video/checkpoint_10.pt",
-            "medsegx":     "./infer_medsegx/checkpoints/TG_Video/checkpoint_epoch_29.pth",
-            "transunet":   "./infer_transunet/checkpoints/TG_Video/epoch_49.pth",
-            "ultrafedfm":  "./infer_ultrafedfm/checkpoints/TG_Video/epoch_bestDice.pth",
-        },
-        # 分割 — 结节
-        "nodule": {
-            "dinov3_unet": "./infer_dinov3_unet/checkpoints/Nodule/dino_unet_train_dataset_4_epoch_50.pth",
-            "medsam2":     "/infer_medsam2/checkpoints/Nodule/checkpoint_5.pt",
-            "medsegx":     "./infer_medsegx/checkpoints/Nodule/model_best.pth",
-            "transunet":   "./infer_transunet/checkpoints/Nodule/epoch_49.pth",
-            "ultrafedfm":  "./infer_ultrafedfm/checkpoints/Nodule/epoch_bestDice.pth",
-        },
-        # 分类 — 良恶性二分类
-        "binary": {
-            "biomedclip":            "./infer_biomedclip/checkpoints/BM_2cls/best_model.pth",
-            "medsiglip":             "./infer_medsiglip/checkpoints/BM_2cls/best_model.pt",
-            "ultrafedfm":            "./infer_ultrafedfm/checkpoints/BM_2cls/checkpoint-best_auroc.pth",
-            "dinov3_unet_multitask": "./infer_dinov3_unet_multitask/checkpoints/BM_2cls/best_model.pth",
-        },
-        # 分类 — TIRADS 五分类
-        "tirads": {
-            "biomedclip":            "./infer_biomedclip/checkpoints/TIRADS_5cls/best_model.pth",
-            "medsiglip":             "./infer_medsiglip/checkpoints/TIRADS_5cls/best_model.pt",
-            "ultrafedfm":            "./infer_ultrafedfm/checkpoints/TIRADS_5cls/checkpoint-best_auroc.pth",
-            "dinov3_unet_multitask": "./infer_dinov3_unet_multitask/checkpoints/TIRADS_5cls/best_model.pth",
-        },
-    },
+# CONFIG 必须包含的顶层字段（用于加载时的最小校验）
+_REQUIRED_CONFIG_KEYS = (
+    "datasets", "labels", "weights", "pretrained",
+    "output_root", "device", "n_bootstrap",
+)
 
-    # --- 预训练骨干模型目录 ---
-    "pretrained": {
-        "biomedclip_dir": "./infer_biomedclip/pretrained_models/biomedclip",
-        "medsiglip_dir":  "./infer_medsiglip/pretrained_models/medsiglip-448",
-        "medsegx_sam_dir": "./infer_medsegx/pretrained_models/SAM",
-        "medsam2_config":  "./infer_medsam2/sam2/configs/sam2.1_hiera_t512.yaml",
-    },
 
-    # --- 输出根目录 ---
-    "output_root": "./results",
+def _load_config(path):
+    """从 YAML 文件加载配置。
 
-    # --- 通用参数 ---
-    "device": "cuda",
-    "n_bootstrap": 2000,
-}
+    参数:
+        path: 配置文件路径（字符串或 Path）
+
+    返回:
+        解析后的配置 dict
+
+    退出码:
+        1 — 配置文件不存在 / PyYAML 未安装 / 缺少必需字段
+    """
+    p = Path(path)
+    if not p.is_file():
+        print(f"  [错误] 配置文件不存在: {p}")
+        print(f"         默认配置位于: {DEFAULT_CONFIG_PATH}")
+        print(f"         可用 --config 指定其他路径。")
+        sys.exit(1)
+
+    try:
+        import yaml
+    except ImportError:
+        print("  [错误] 未安装 PyYAML，请运行: pip install pyyaml")
+        sys.exit(1)
+
+    with open(p, "r", encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
+
+    if not isinstance(cfg, dict):
+        print(f"  [错误] 配置文件格式错误: 顶层应为映射，实际为 {type(cfg).__name__}")
+        sys.exit(1)
+
+    missing = [k for k in _REQUIRED_CONFIG_KEYS if k not in cfg]
+    if missing:
+        print(f"  [错误] 配置文件缺少必需字段: {', '.join(missing)}")
+        sys.exit(1)
+
+    return cfg
+
 
 # ============================================================================
 # 任务定义：每个任务下各模型的命令构建器
 # ============================================================================
-
-ROOT = Path(__file__).resolve().parent
 
 
 def _resolve(path):
@@ -426,6 +410,100 @@ def _resolve_cmd_paths(cmd):
     return resolved
 
 
+# ============================================================================
+# 预检查：运行前统一校验 CONFIG 中所有路径
+# ============================================================================
+
+# 每个模型依赖的预训练骨干 (key, 类型: "dir" | "file")
+_MODEL_PRETRAINED_DEPS = {
+    "biomedclip":            [("biomedclip_dir",  "dir")],
+    "medsiglip":             [("medsiglip_dir",   "dir")],
+    "medsegx":               [("medsegx_sam_dir", "dir")],
+    "medsam2":               [("medsam2_config",  "file")],
+    "transunet":             [],
+    "ultrafedfm":            [],
+    "dinov3_unet":           [],
+    "dinov3_unet_multitask": [],
+}
+
+# 每个任务依赖的数据集目录和标签文件 (CONFIG key, 描述)
+_TASK_DEPS = {
+    "gland": {
+        "dirs":  [("gland_images", "datasets.gland_images"),
+                  ("gland_masks",  "datasets.gland_masks")],
+        "files": [],
+    },
+    "nodule": {
+        "dirs":  [("nodule_images", "datasets.nodule_images"),
+                  ("nodule_masks",  "datasets.nodule_masks")],
+        "files": [],
+    },
+    "binary": {
+        "dirs":  [("binary_images", "datasets.binary_images")],
+        "files": [("binary_json",   "labels.binary_json")],
+    },
+    "tirads": {
+        "dirs":  [("tirads_images", "datasets.tirads_images")],
+        "files": [("tirads_json",   "labels.tirads_json")],
+    },
+}
+
+
+def preflight_check(tasks, models_filter=None):
+    """运行前统一检查 CONFIG 中所需路径/文件是否存在。
+
+    只检查 tasks 中涉及的、且未被 models_filter 排除的模型所依赖的路径，
+    避免运行到一半才发现路径缺失。
+
+    参数:
+        tasks:          要运行的任务 id 列表
+        models_filter:   模型筛选列表（None 表示不筛选）
+
+    返回:
+        missing: 缺失项列表，每项为 (类型, 描述, 原始路径, 解析路径)
+    """
+    missing = []
+    pt = CONFIG["pretrained"]
+    ds = CONFIG["datasets"]
+    lb = CONFIG["labels"]
+    wt = CONFIG["weights"]
+
+    def _check_dir(path, desc):
+        p = _resolve(path)
+        if not os.path.isdir(p):
+            missing.append(("目录", desc, path, p))
+
+    def _check_file(path, desc):
+        p = _resolve(path)
+        if not os.path.isfile(p):
+            missing.append(("文件", desc, path, p))
+
+    # 输出根目录
+    _check_dir(CONFIG["output_root"], "output_root")
+
+    for task_id in tasks:
+        dep = _TASK_DEPS[task_id]
+        # 数据集目录
+        for key, desc in dep["dirs"]:
+            _check_dir(ds[key], f"{task_id}/{desc}")
+        # 标签文件
+        for key, desc in dep["files"]:
+            _check_file(lb[key], f"{task_id}/{desc}")
+        # 权重 + 预训练模型
+        for model_name, weight_path in wt[task_id].items():
+            if models_filter and model_name not in models_filter:
+                continue
+            _check_file(weight_path, f"{task_id}/weights.{model_name}")
+            for pt_key, pt_type in _MODEL_PRETRAINED_DEPS.get(model_name, []):
+                desc = f"{task_id}/pretrained.{pt_key} ({model_name})"
+                if pt_type == "dir":
+                    _check_dir(pt[pt_key], desc)
+                else:
+                    _check_file(pt[pt_key], desc)
+
+    return missing
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="统一推理脚本 — 一键运行全部四个任务的所有模型",
@@ -438,8 +516,11 @@ def main():
   python run_all.py --tasks gland --models dinov3_unet  # 指定模型
   python run_all.py --dry_run                            # 只打印命令不执行
   python run_all.py --list                               # 列出所有任务和模型
+  python run_all.py --config my_config.yaml              # 指定配置文件
         """,
     )
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH),
+                        help=f"配置文件路径（默认: {DEFAULT_CONFIG_PATH}）")
     parser.add_argument("--tasks", nargs="+", default=list(TASKS.keys()),
                         choices=list(TASKS.keys()),
                         help="要运行的任务（默认全部）")
@@ -450,6 +531,10 @@ def main():
     parser.add_argument("--list", action="store_true",
                         help="列出所有任务和模型后退出")
     args = parser.parse_args()
+
+    # 加载配置文件（必须在使用 CONFIG 之前完成）
+    global CONFIG
+    CONFIG = _load_config(args.config)
 
     if args.list:
         print("可用任务和模型:\n")
@@ -469,6 +554,7 @@ def main():
     print("=" * 70)
     print("  统一推理脚本")
     print("=" * 70)
+    print(f"  配置文件: {args.config}")
     print(f"  任务: {', '.join(args.tasks)}")
     if args.models:
         print(f"  模型筛选: {', '.join(args.models)}")
@@ -476,6 +562,19 @@ def main():
     print(f"  设备: {CONFIG['device']}")
     print(f"  Dry run: {args.dry_run}")
     print("=" * 70)
+
+    # ---- 预检查：CONFIG 中所有路径 ----
+    print("\n  预检查 CONFIG 路径...")
+    missing = preflight_check(args.tasks, args.models)
+    if missing:
+        print(f"\n  发现 {len(missing)} 项缺失:")
+        for kind, desc, orig, resolved in missing:
+            print(f"    [{kind}] {desc}")
+            print(f"           配置: {orig}")
+            print(f"           解析: {resolved}")
+        print(f"\n  请修正 CONFIG 后重试。")
+        sys.exit(1)
+    print("  预检查通过\n")
 
     for task_id in args.tasks:
         task = TASKS[task_id]
