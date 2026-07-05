@@ -279,6 +279,102 @@ def slim_biomedclip(ckpt_path, dry_run=False):
 
 
 # ============================================================================
+# 5. 通用: 去除 optimizer/scaler/scheduler 等训练状态
+# ============================================================================
+
+def slim_generic(ckpt_path, dry_run=False):
+    """
+    通用精简函数：检测并去除 checkpoint 中的 optimizer/scaler/scheduler 等训练状态。
+
+    适用于:
+      - DINOv3-UNet 分割: 可能用 {"state_dict": ..., "optimizer": ...} 格式
+      - MedSAM2: 可能含训练状态
+      - TransUNet: 可能用 {"model": ..., "optimizer": ...} 格式
+      - 任何其他可能含冗余的 checkpoint
+
+    推理只需 model weights，optimizer/scaler/scheduler 等是冗余的。
+    """
+    import torch
+
+    ckpt = torch.load(ckpt_path, map_location="cpu")
+
+    # 情况1: 裸 state_dict（OrderedDict，key 是参数名）
+    # 判断方法: 如果第一个 key 包含常见的模型层名，说明是裸 state_dict
+    if not isinstance(ckpt, dict) or len(ckpt) == 0:
+        print(f"  [跳过] 非 dict 或为空")
+        return 0
+
+    first_keys = list(ckpt.keys())[:5]
+    model_layer_patterns = ["dino", "encoder", "decoder", "module", "head", "conv",
+                            "block", "norm", "patch", "pos", "cls", "mask", "sam",
+                            "image_encoder", "neck", "transformer"]
+    is_bare_state_dict = any(
+        any(p in k for p in model_layer_patterns)
+        for k in first_keys
+    )
+
+    if is_bare_state_dict:
+        print(f"  [跳过] 裸 state_dict 格式（前5 keys: {first_keys[:3]}...）")
+        return 0
+
+    # 情况2: 包装格式，含 model/state_dict + 训练状态
+    # 常见 key: model, state_dict, model_state_dict, optimizer, scaler, scheduler, epoch, ...
+    model_keys_candidates = ["model", "state_dict", "model_state_dict"]
+    model_key = None
+    for k in model_keys_candidates:
+        if k in ckpt:
+            model_key = k
+            break
+
+    if model_key is None:
+        print(f"  [跳过] 无法识别的格式（keys: {first_keys}）")
+        return 0
+
+    redundant_keys = [k for k in ckpt if k != model_key]
+    # 过滤掉小的元数据（epoch 等整数）
+    redundant_large = []
+    for k in redundant_keys:
+        v = ckpt[k]
+        if isinstance(v, dict):
+            # 估算大小
+            try:
+                size = sum(t.numel() * t.element_size() for t in v.values() if hasattr(t, 'numel'))
+                redundant_large.append((k, size / 1024 / 1024))
+            except Exception:
+                pass
+
+    if not redundant_large:
+        print(f"  [跳过] 冗余 keys 均为小元数据: {redundant_keys}")
+        return 0
+
+    total_redundant_mb = sum(s for _, s in redundant_large)
+    print(f"  模型权重 key: {model_key}")
+    print(f"  冗余 keys:")
+    for k, size in redundant_large:
+        print(f"    {k}: {size:.1f} MB")
+
+    if dry_run:
+        print(f"  [DRY RUN] 可节省约 {total_redundant_mb:.0f} MB")
+        return total_redundant_mb
+
+    # 只保留模型权重 + 小元数据
+    new_ckpt = {model_key: ckpt[model_key]}
+    for k in redundant_keys:
+        v = ckpt[k]
+        # 保留非 dict 的小元数据（如 epoch 整数）
+        if not isinstance(v, dict):
+            new_ckpt[k] = v
+
+    backup_file(ckpt_path)
+    torch.save(new_ckpt, ckpt_path)
+
+    saved = get_file_size(f"{ckpt_path}.bak") - get_file_size(ckpt_path)
+    print(f"  已精简: {get_file_size(f'{ckpt_path}.bak'):.1f} MB -> {get_file_size(ckpt_path):.1f} MB "
+          f"(节省 {saved:.1f} MB)")
+    return saved
+
+
+# ============================================================================
 # 主流程
 # ============================================================================
 
@@ -335,6 +431,36 @@ def collect_targets(cfg):
             "fn": check_medsegx_sam,
             "is_dir": True,
         })
+
+    # DINOv3-UNet 分割: 通用检查（可能含 optimizer）
+    for task in ["gland", "nodule"]:
+        w = weights.get(task, {}).get("dinov3_unet")
+        if w:
+            targets.append({
+                "name": f"DINOv3-UNet 分割 ({task})",
+                "path": w,
+                "fn": slim_generic,
+            })
+
+    # MedSAM2: 通用检查（可能含 optimizer）
+    for task in ["gland", "nodule"]:
+        w = weights.get(task, {}).get("medsam2")
+        if w:
+            targets.append({
+                "name": f"MedSAM2 ({task})",
+                "path": w,
+                "fn": slim_generic,
+            })
+
+    # TransUNet: 通用检查（可能含 optimizer）
+    for task in ["gland", "nodule"]:
+        w = weights.get(task, {}).get("transunet")
+        if w:
+            targets.append({
+                "name": f"TransUNet ({task})",
+                "path": w,
+                "fn": slim_generic,
+            })
 
     return targets
 
