@@ -44,7 +44,7 @@ iopath>=0.1.9                  # infer_medsam2
 ml-collections>=1.1.0          # infer_transunet
 
 # --- 医学图像评估 ---
-medpy>=0.6.0                   # infer_transunet (>=0.6.0 以兼容 Python 3.11)
+medpy>=0.5.2                   # infer_transunet (PyPI 最新为 0.5.2，支持 Python 3.11)
 
 # --- 工具 ---
 tqdm>=4.64.0

@@ -35,7 +35,7 @@ CONFIG = {
     # --- 数据集路径 ---
     "datasets": {
         "gland_images": "./datasets/TGVideo_PNG/test/image",
-        "gland_masks":  "./TGVideo_PNG/test/mask",
+        "gland_masks":  "./datasets/TGVideo_PNG/test/mask",
         "nodule_images": "./datasets/TN3K/test/images",
         "nodule_masks":  "./datasets/TN3K/test/masks",
         "binary_images": "./datasets/TN3K/test/images",
@@ -54,42 +54,42 @@ CONFIG = {
     "weights": {
         # 分割 — 腺体
         "gland": {
-            "dinov3_unet": "./infer_dinov3_unet/checkpoints/gland/dino_unet_train_TGVideo_epoch_30.pth",
-            "medsam2":     "./infer_medsam2/checkpoints/MedSAM2_TG_Video/checkpoint_10.pt",
+            "dinov3_unet": "./infer_dinov3_unet/checkpoints/TG_Video/dino_unet_train_TGVideo_epoch_30.pth",
+            "medsam2":     "./infer_medsam2/checkpoints/TG_Video/checkpoint_10.pt",
             "medsegx":     "./infer_medsegx/checkpoints/TG_Video/checkpoint_epoch_29.pth",
             "transunet":   "./infer_transunet/checkpoints/TG_Video/epoch_49.pth",
-            "ultrafedfm":  "/mnt/wangbd8/workspace/ThyroidAgent/UltraFedFM/my_pth/gland_seg/epoch_bestDice.pth",
+            "ultrafedfm":  "./infer_ultrafedfm/checkpoints/TG_Video/epoch_bestDice.pth",
         },
         # 分割 — 结节
         "nodule": {
-            "dinov3_unet": "/mnt/wangbd8/workspace/ThyroidAgent/dino_unet_ori/checkpoints/train_Nodule/train_dataset_4/dino_unet_train_dataset_4_epoch_50.pth",
-            "medsam2":     "/mnt/wangbd8/workspace/ThyroidAgent/MedSAM2/my_finetune/MedSAM2_Noudle_FullBox/checkpoints/checkpoint_5.pt",
-            "medsegx":     "/mnt/wangbd8/workspace/ThyroidAgent/MedSegX-code/playground/MedSegX/finetune/cross_site/US_ThyroidNodule/NoduleData/model_best.pth",
-            "transunet":   "/mnt/wangbd8/workspace/ThyroidAgent/TransUNet/my_model/Nodule/epoch_49.pth",
-            "ultrafedfm":  "/mnt/wangbd8/workspace/ThyroidAgent/UltraFedFM/my_pth/nodule_seg/epoch_bestDice.pth",
+            "dinov3_unet": "./infer_dinov3_unet/checkpoints/Nodule/dino_unet_train_dataset_4_epoch_50.pth",
+            "medsam2":     "/infer_medsam2/checkpoints/Nodule/checkpoint_5.pt",
+            "medsegx":     "./infer_medsegx/checkpoints/Nodule/model_best.pth",
+            "transunet":   "./infer_transunet/checkpoints/Nodule/epoch_49.pth",
+            "ultrafedfm":  "./infer_ultrafedfm/checkpoints/Nodule/epoch_bestDice.pth",
         },
         # 分类 — 良恶性二分类
         "binary": {
-            "biomedclip":            "/mnt/wangbd8/workspace/ThyroidAgent/Classification_Models/my_BiomedCLIP/output/BM/best_model.pth",
-            "medsiglip":             "/mnt/wangbd8/workspace/ThyroidAgent/Classification_Models/my_MedSigLIP/checkpoints/binary_cls/best_model.pt",
-            "ultrafedfm":            "/mnt/wangbd8/workspace/ThyroidAgent/UltraFedFM/output_dir/dataset_3_cls_experiment/checkpoint-best_auroc.pth",
-            "dinov3_unet_multitask": "/mnt/wangbd8/workspace/ThyroidAgent/dino_unet_ori/checkpoints/multitask/best_model.pth",
+            "biomedclip":            "./infer_biomedclip/checkpoints/BM_2cls/best_model.pth",
+            "medsiglip":             "./infer_medsiglip/checkpoints/BM_2cls/best_model.pt",
+            "ultrafedfm":            "./infer_ultrafedfm/checkpoints/BM_2cls/checkpoint-best_auroc.pth",
+            "dinov3_unet_multitask": "./infer_dinov3_unet_multitask/checkpoints/BM_2cls/best_model.pth",
         },
         # 分类 — TIRADS 五分类
         "tirads": {
-            "biomedclip":            "/mnt/wangbd8/workspace/ThyroidAgent/Classification_Models/my_BiomedCLIP/output/TIRADS/best_model.pth",
-            "medsiglip":             "/mnt/wangbd8/workspace/ThyroidAgent/Classification_Models/my_MedSigLIP/checkpoints/multi_cls/best_model.pt",
-            "ultrafedfm":            "/mnt/wangbd8/workspace/ThyroidAgent/UltraFedFM/output_dir/Cine-Clip_TIRADS/checkpoint-best_auroc.pth",
-            "dinov3_unet_multitask": "/mnt/wangbd8/workspace/ThyroidAgent/dino_unet_ori/checkpoints/multitask/best_model.pth",
+            "biomedclip":            "./infer_biomedclip/checkpoints/TIRADS_5cls/best_model.pth",
+            "medsiglip":             "./infer_medsiglip/checkpoints/TIRADS_5cls/best_model.pt",
+            "ultrafedfm":            "./infer_ultrafedfm/checkpoints/TIRADS_5cls/checkpoint-best_auroc.pth",
+            "dinov3_unet_multitask": "./infer_dinov3_unet_multitask/checkpoints/TIRADS_5cls/best_model.pth",
         },
     },
 
     # --- 预训练骨干模型目录 ---
     "pretrained": {
-        "biomedclip_dir": "/mnt/wangbd8/workspace/ThyroidAgent/Classification_Models/my_BiomedCLIP/pretrained_models/biomedclip",
-        "medsiglip_dir":  "/mnt/wangbd8/workspace/ThyroidAgent/Classification_Models/my_MedSigLIP/pretrained/medsiglip-448",
-        "medsegx_sam_dir": "/mnt/wangbd8/workspace/ThyroidAgent/MedSegX-code/playground/SAM",
-        "medsam2_config":  "sam2.1_hiera_t512.yaml",
+        "biomedclip_dir": "./infer_biomedclip/pretrained_models/biomedclip",
+        "medsiglip_dir":  "./infer_medsiglip/pretrained_models/medsiglip-448",
+        "medsegx_sam_dir": "./infer_medsegx/pretrained_models/SAM",
+        "medsam2_config":  "./infer_medsam2/sam2/configs/sam2.1_hiera_t512.yaml",
     },
 
     # --- 输出根目录 ---

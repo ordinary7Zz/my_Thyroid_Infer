@@ -7,8 +7,11 @@
   2. 用相同的裁剪参数处理腺体掩码 (ORG1) 和结节掩码 (ROI1)
   3. 从 INI 文件提取良恶性和 TI-RADS 标签
 
-输入: datasets/甲状腺私有数据/新建文件夹/ 下的原图(_ORG1/_ROI1)和 INI 标签文件
-输出: datasets/processed/ 下的:
+本脚本应放在 my_ThyroidROI/newcode/ 目录下，与 roi_extractor.py 同级。
+直接 import 同目录下的 roi_extractor 模块，无需 sys.path hack。
+
+输入: <repo>/datasets/甲状腺私有数据/新建文件夹/ 下的原图(_ORG1/_ROI1)和 INI 标签文件
+输出: <repo>/datasets/processed/ 下的:
   - images/        裁剪后的原始图像
   - gland_masks/   裁剪后的腺体掩码 (文件名与原图一致)
   - nodule_masks/  裁剪后的结节掩码 (文件名与原图一致)
@@ -32,26 +35,27 @@
 """
 
 import os
-import sys
 import re
 import json
+import shutil
 import argparse
 from pathlib import Path
 from configparser import ConfigParser
 
+import cv2
+import numpy as np
+
 # ========================= 配置 =========================
-SCRIPT_DIR = Path(__file__).parent
-INPUT_DIR = SCRIPT_DIR / "datasets" / "甲状腺私有数据" / "新建文件夹"
-OUTPUT_DIR = SCRIPT_DIR / "datasets" / "processed"
+# SCRIPT_DIR = my_ThyroidROI/newcode/, 项目根目录 = 上两级
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+INPUT_DIR = PROJECT_ROOT / "datasets" / "甲状腺私有数据" / "新建文件夹"
+OUTPUT_DIR = PROJECT_ROOT / "datasets" / "processed"
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp"}
 
 # 后缀标识
 ORG_SUFFIX = "_ORG1"  # 腺体掩码
 ROI_SUFFIX = "_ROI1"  # 结节掩码
-
-# ROI 提取代码目录
-ROI_CODE_DIR = SCRIPT_DIR / "my_ThyroidROI" / "newcode"
 
 
 # ========================= INI 解析 =========================
@@ -140,10 +144,7 @@ def extract_tirads(birads_value: str) -> int:
 
 # ========================= ROI 提取 =========================
 def init_roi_extractor(checkpoint_path: str):
-    """初始化 ROIExtractor。"""
-    import cv2  # noqa: F401  确保依赖可用
-    # 将 ROI 代码目录加入 sys.path
-    sys.path.insert(0, str(ROI_CODE_DIR))
+    """初始化 ROIExtractor（同目录直接 import）。"""
     from roi_extractor import ROIExtractor
 
     extractor = ROIExtractor(checkpoint_path)
@@ -157,7 +158,6 @@ def extract_roi_for_image(extractor, image_path: Path):
     返回:
       roi_bgr: np.ndarray (H, W, 3) uint8 BGR
       crop_params: dict {'x', 'y', 'w', 'h', 'mask'}
-    失败时返回 (None, None)
     """
     roi_rgb, crop_params = extractor.extract_roi_with_crop_params(str(image_path))
     # RGB float32 [0,1] → BGR uint8 [0,255]
@@ -174,9 +174,6 @@ def crop_mask_with_params(mask_path: Path, crop_params: dict):
 
     返回: np.ndarray (H, W) uint8, 裁剪后的二值掩码
     """
-    import cv2
-    import numpy as np
-
     # 读取掩码为灰度图
     mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
     if mask is None:
@@ -288,9 +285,6 @@ def main():
         "roi_errors": [],
     }
 
-    import cv2
-    import numpy as np
-
     for img_path in original_images:
         stem = img_path.stem
         ext = img_path.suffix
@@ -313,13 +307,11 @@ def main():
                 stats["roi_success"] += 1
             except Exception as e:
                 print(f"  [ROI 错误] {img_path.name}: {e}，回退为直接复制")
-                import shutil
                 shutil.copy2(img_path, out_image)
                 crop_params = None
                 stats["roi_failed"] += 1
                 stats["roi_errors"].append((img_path.name, str(e)))
         else:
-            import shutil
             shutil.copy2(img_path, out_image)
             crop_params = None
 
@@ -332,11 +324,9 @@ def main():
                     stats["has_gland_mask"] += 1
                 except Exception as e:
                     print(f"  [腺体掩码错误] {img_path.name}: {e}，回退为直接复制")
-                    import shutil
                     shutil.copy2(org_path, out_gland)
                     stats["has_gland_mask"] += 1
             else:
-                import shutil
                 shutil.copy2(org_path, out_gland)
                 stats["has_gland_mask"] += 1
         else:
@@ -351,11 +341,9 @@ def main():
                     stats["has_nodule_mask"] += 1
                 except Exception as e:
                     print(f"  [结节掩码错误] {img_path.name}: {e}，回退为直接复制")
-                    import shutil
                     shutil.copy2(roi_path, out_nodule)
                     stats["has_nodule_mask"] += 1
             else:
-                import shutil
                 shutil.copy2(roi_path, out_nodule)
                 stats["has_nodule_mask"] += 1
         else:
