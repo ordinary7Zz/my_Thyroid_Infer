@@ -125,13 +125,14 @@ _MASK_DIR_FLAGS = {
 def _add_mask_output(task_id, cmds):
     """为分割模型的命令追加掩码输出目录参数。
 
-    分割任务始终保存预测掩码（统一评估依赖掩码文件）。
+    根据 CONFIG['save_masks'] 决定是否追加掩码输出目录。
     输出路径: results/<task>/<model>/masks/
     """
+    save_masks = CONFIG.get("save_masks", False)
     result = []
     for model_name, cmd in cmds:
         flag = _MASK_DIR_FLAGS.get(model_name)
-        if flag is None:
+        if flag is None or not save_masks:
             result.append((model_name, cmd))
             continue
         mask_path = _resolve(os.path.join(
