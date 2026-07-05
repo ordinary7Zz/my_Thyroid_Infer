@@ -31,6 +31,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
@@ -125,8 +126,8 @@ class InferenceDataset(Dataset):
             if gt_path is not None:
                 with Image.open(gt_path) as gt:
                     gt = gt.convert("L")
-                    gt = gt.resize((self.img_size, self.img_size), resample=Image.NEAREST)
-                    # 任何非零像素视为前景
+                    # 任何非零像素视为前景，保持原图分辨率以便与其他模型
+                    # 在同一尺度下计算指标（HD95 单位为像素）
                     gt_array = (np.array(gt) > 0).astype(np.uint8)
 
         return {
@@ -406,8 +407,7 @@ def main():
                             "ece": None,
                         })
                     else:
-                        gt_bool = gt_array.astype(bool)
-                        pred_bool = mask_np > 0.5
+                        gt_bool = gt_array.astype(bool)  # 原图分辨率
 
                         if not np.any(gt_bool):
                             # GT 为空，跳过该 case（保留现有行为）
@@ -421,6 +421,15 @@ def main():
                                 "ece": None,
                             })
                         else:
+                            # 将 224 网格上的预测 resize 回原图分辨率，
+                            # 与其他模型在同一尺度下计算指标（HD95 单位为像素）
+                            prob_full = F.interpolate(
+                                torch.from_numpy(prob_np).unsqueeze(0).unsqueeze(0),
+                                size=(oh, ow), mode="bilinear", align_corners=False
+                            ).squeeze().numpy()
+                            prob_full = np.clip(prob_full, 0.0, 1.0)
+                            pred_bool = prob_full > 0.5
+
                             # 转为 tensor 供指标计算器使用
                             pred_tensor = torch.from_numpy(
                                 pred_bool.astype(np.float32)
@@ -429,7 +438,7 @@ def main():
                                 gt_bool.astype(np.float32)
                             )
                             prob_tensor = torch.from_numpy(
-                                prob_np.astype(np.float32)
+                                prob_full.astype(np.float32)
                             )
 
                             # Dice
