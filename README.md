@@ -1,6 +1,6 @@
 # Thyroid Inference Toolkit
 
-甲状腺超声图像推理工具集，包含多种深度学习模型的独立推理代码，支持**分割**和**分类**两类任务。
+甲状腺超声图像推理工具集，包含多种深度学习模型的统一推理代码，支持**分割**和**分类**两类任务。
 
 ## 目录
 
@@ -10,18 +10,27 @@
 - [环境安装](#环境安装)
 - [快速开始](#快速开始)
 - [数据集说明](#数据集说明)
-- [指标计算方式分析](#指标计算方式分析)
+- [统一指标计算](#统一指标计算)
 
 ---
 
 ## 概述
 
-本项目汇集了 8 个模型的推理代码，用于甲状腺超声图像的自动分析。每个子目录均为**独立可运行**的推理包，不依赖项目内其他文件。
+本项目汇集了 8 个模型的推理代码，用于甲状腺超声图像的自动分析。
 
-| 任务 | 说明 |
+项目提供两个层次的运行入口：
+
+| 入口 | 说明 |
 |---|---|
-| **分割** | 甲状腺腺体分割（Gland）和结节分割（Nodule），输出二值掩码 |
-| **分类** | 良恶性二分类（Binary）和 TIRADS 五分类（Multi-class） |
+| `pipeline.py` | **端到端流水线**：数据预处理（ROI 裁剪 + 掩码对齐 + 标签提取）→ 生成配置 → 运行推理 |
+| `run_all.py` | **统一推理**：一键运行全部四个任务的所有模型，并汇总性能指标 |
+
+各推理子目录共享项目根目录下的两个统一指标模块：
+
+| 模块 | 作用 |
+|---|---|
+| `seg_metrics.py` | 分割指标：Dice / HD95 / ECE + Bootstrap CI95 |
+| `cls_metrics.py` | 分类指标：AUROC / AUPRC / Accuracy / Precision / Recall / F1 + Bootstrap CI95 |
 
 ---
 
@@ -29,17 +38,30 @@
 
 ```
 my_Thyroid_infer/
-├── datasets/                        # 测试数据集
-├── infer_biomedclip/                # BiomedCLIP 分类推理
-├── infer_dinov3_unet/               # DINOv3-UNet 分割推理
-├── infer_dinov3_unet_multitask/     # DINOv3-UNet 多任务分类推理
-├── infer_medsam2/                   # MedSAM2 分割推理
-├── infer_medsegx/                   # MedSegX 分割推理
-├── infer_medsiglip/                 # MedSigLIP 分类推理
-├── infer_transunet/                 # TransUNet 分割推理
-├── infer_ultrafedfm/                # UltraFedFM 分割 + 分类推理
-├── unified_requirements.txt         # 统一依赖
-└── README.md                        # 本文件
+├── config.yaml                       # 统一配置（数据集路径、权重、预训练模型等）
+├── pipeline.py                       # 端到端流水线脚本
+├── run_all.py                        # 统一推理脚本
+├── seg_metrics.py                    # 分割指标统一模块（5 个分割模型共享）
+├── cls_metrics.py                    # 分类指标统一模块（4 个分类模型共享）
+├── metrics.py                        # 旧版分割指标（兼容用，推荐使用 seg_metrics）
+├── unified_requirements.txt           # 统一依赖
+├── README.md                         # 本文件
+│
+├── my_ThyroidROI/                    # ROI 提取工具（pipeline.py 调用）
+│   └── newcode/prepare_data.py       #   数据预处理：ROI 裁剪 + 掩码对齐 + 标签提取
+│
+├── datasets/                         # 测试数据集
+│
+├── infer_biomedclip/                 # BiomedCLIP 分类推理
+├── infer_dinov3_unet/                # DINOv3-UNet 分割推理
+├── infer_dinov3_unet_multitask/      # DINOv3-UNet 多任务分类推理
+├── infer_medsam2/                    # MedSAM2 分割推理
+├── infer_medsegx/                    # MedSegX 分割推理
+├── infer_medsiglip/                  # MedSigLIP 分类推理
+├── infer_transunet/                  # TransUNet 分割推理
+├── infer_ultrafedfm/                 # UltraFedFM 分割 + 分类推理
+│
+└── results/                          # 推理结果（掩码、预测 CSV、指标日志、汇总报告）
 ```
 
 ---
@@ -96,7 +118,53 @@ pip install -r unified_requirements.txt
 
 ## 快速开始
 
-### 分割推理示例
+### 方式一：端到端流水线（从原始数据到推理结果）
+
+```bash
+# 1. 编辑 config.yaml 中的 prepare 段配置输入目录和 ROI 权重
+#    prepare:
+#      input_dir:      ./datasets/甲状腺私有数据/新建文件夹
+#      output_dir:     ./datasets/processed
+#      roi_checkpoint: ./my_ThyroidROI/outputs/best_dice_model.pth
+
+# 2. 运行完整流水线
+python pipeline.py
+
+# 也可通过命令行覆盖参数
+python pipeline.py --input_dir /path/to/raw_data --skip_roi
+
+# 跳过预处理，直接用已有 processed/ 数据生成配置并运行
+python pipeline.py --skip_prepare
+
+# 只运行特定任务
+python pipeline.py --tasks gland nodule
+```
+
+### 方式二：统一推理（已有数据集和权重）
+
+```bash
+# 1. 编辑 config.yaml 配置数据集路径、权重、预训练模型
+
+# 2. 运行全部任务（分割 + 分类）
+python run_all.py
+
+# 只运行分割任务
+python run_all.py --tasks gland nodule
+
+# 只运行分类任务
+python run_all.py --tasks binary tirads
+
+# 只运行特定模型
+python run_all.py --models dinov3_unet medsam2
+
+# 只打印命令不执行
+python run_all.py --dry_run
+
+# 列出所有任务和模型
+python run_all.py --list
+```
+
+### 方式三：单独运行某个模型
 
 ```bash
 # DINOv3-UNet 腺体分割
@@ -106,17 +174,6 @@ python infer_dinov3_unet/infer.py \
     --gt_dir /path/to/masks \
     --log_dir ./logs
 
-# MedSAM2 结节分割
-python infer_medsam2/infer.py \
-    --image_dir /path/to/images \
-    --checkpoint /path/to/medsam2.pt \
-    --gt_dir /path/to/masks \
-    --log_dir ./logs
-```
-
-### 分类推理示例
-
-```bash
 # BiomedCLIP 良恶性二分类
 python infer_biomedclip/infer.py \
     --ckpt /path/to/model.pth \
@@ -127,182 +184,172 @@ python infer_biomedclip/infer.py \
     --label_json /path/to/labels.json \
     --label_field malignancy \
     --output ./results.csv
-
-# MedSigLIP TIRADS 五分类
-python infer_medsiglip/inference.py \
-    --checkpoint /path/to/model.pt \
-    --model_path /path/to/medsiglip-448 \
-    --input /path/to/images \
-    --output ./results.csv \
-    --label_file /path/to/labels.json \
-    --label_field tirads
 ```
 
 ---
 
 ## 数据集说明
 
-| 数据集 | 任务 | 说明 |
-|---|---|---|
-| **TGVideo** | 腺体分割 | 甲状腺视频截帧，PNG 格式 |
-| **TN3K** | 结节分割 + 良恶性分类 | 甲状腺结节 3000 例 |
-| **Cine-Clip** | TIRADS 五分类 | 甲状腺视频片段 |
+### 测试数据集
 
-标签 JSON 格式：
+数据集路径在 `config.yaml` 中配置。支持两类数据来源：
+
+**公共数据集**（直接放入对应目录）：
+
+| 数据集 | 任务 | config.yaml 中的路径 |
+|---|---|---|
+| **TGVideo_PNG** | 腺体分割 | `datasets/TGVideo_PNG/test/` |
+| **TN3K** | 结节分割 + 良恶性分类 | `datasets/TN3K/test/` |
+| **Cine-Clip** | TIRADS 五分类 | `datasets/Cine-Clip/test/` |
+
+**私有数据**（通过 `pipeline.py` 预处理）：
+
+```bash
+# 原始数据放在 datasets/甲状腺私有数据/新建文件夹/ 下
+# 每个样本包含：原图、_ORG1 腺体掩码、_ROI1 结节掩码、.ini 标签文件
+python pipeline.py  # 自动裁剪 ROI + 对齐掩码 + 提取标签
+```
+
+### 标签文件格式
+
+分类任务需要提供 JSON 标签文件（`config.yaml` 中 `labels` 段配置）：
 
 ```json
 [
-    {"filename": "a.jpg", "malignancy": 0, "FTCPTC": 1, "LNM_CN01": 1, "tirads": 2},
-    {"filename": "b.jpg", "malignancy": 1, "FTCPTC": 0, "LNM_CN01": 0, "tirads": 4}
+    {"filename": "a.jpg", "malignancy": 0, "tirads": 2},
+    {"filename": "b.jpg", "malignancy": 1, "tirads": 4}
 ]
 ```
 
-GT mask 与图像按**文件名 stem** 匹配（扩展名不需相同），灰度图，前景 > 0 或 > 128 视为正类。
+- `malignancy`：良恶性（0=良性, 1=恶性, -1=缺失将被过滤）
+- `tirads`：TI-RADS 分级（1-5, -1=缺失将被过滤）
 
----
+GT mask 与图像按**文件名**匹配，灰度图，前景 > 0 视为正类。
 
-## 指标计算方式分析
+### 私有数据集结构（pipeline.py 输入）
 
-> 以下详细分析各模型在计算分割指标（Dice、HD95）和分类指标（AUROC、AUPRC 等）时是否存在差异。
+`pipeline.py` 的输入是未经处理的甲状腺私有数据，默认放在 `datasets/甲状腺私有数据/新建文件夹/` 下（可通过 `config.yaml` 的 `prepare.input_dir` 或命令行 `--input_dir` 修改）。
 
-### 一、分割指标
+**每个样本由 4 个同名文件组成**（扩展名相同）：
 
-#### 1.1 Dice
+```
+datasets/甲状腺私有数据/新建文件夹/
+├── THYB_S_AN01_ND000091_202052842015.png        # 原始超声图像
+├── THYB_S_AN01_ND000091_202052842015_ORG1.png  # 腺体掩码（_ORG1 后缀）
+├── THYB_S_AN01_ND000091_202052842015_ROI1.png  # 结节掩码（_ROI1 后缀）
+└── THYB_S_AN01_ND000091_202052842015.ini       # 标签文件（INI 格式）
+```
 
-| 模型 | 公式 | smooth 项 | 两空（TN） | 预空 GT 非空（FN） | 预非空 GT 空（FP） |
-|---|---|---|---|---|---|
-| **dinov3_unet** | `2\|A∩B\|+s / (\|A\|+\|B\|+s)` | s=1.0 | 跳过（GT 空→None） | ≈0 | ≈0 |
-| **medsam2** | `2\|A∩B\|+s / (\|A\|+\|B\|+s)` | s=1.0 | ≈1.0¹ | ≈0 | ≈0 |
-| **medsegx** | `2\|A∩B\| / (\|A\|+\|B\|)` | 无 | 1.0 | 0.0 | 0.0 |
-| **transunet** | `medpy.metric.binary.dc()` | 无 | 0.0² | 0.0 | 1.0³ |
-| **ultrafedfm** | `2\|A∩B\| / (\|A\|+\|B\|)` | 无 | 1.0 | 0.0 | 0.0 |
+**文件命名规则**：
 
-> ¹ medsam2 两空时 intersection=0, pred_sum=0, gt_sum=0 → (0+1)/(0+0+1)=1.0
-> ² transunet 两空时走 `else` 分支 → dice=0.0
-> ³ transunet 预非空 GT 空时 → dice=1.0（视为"假阳性不算错"）
-
-**关键差异**：
-- **smooth 项**：dinov3_unet 和 medsam2 使用 `smooth=1.0`，对小目标略有影响；medsegx、ultrafedfm、transunet 不使用。
-- **两空（TN）处理**：medsam2/medsegx/ultrafedfm 返回 1.0（完美匹配），transunet 返回 0.0，dinov3_unet 跳过。
-- **假阳性（FP）处理**：transunet 返回 dice=1.0（不惩罚假阳性），其余返回 0.0。
-
-#### 1.2 HD95
-
-| 模型 | 计算方式 | 预空 GT 非空（FN） | 预非空 GT 空（FP） | 两空（TN） |
-|---|---|---|---|---|
-| **dinov3_unet** | `max(p95(d(pred→gt)), p95(d(gt→pred)))` | 图像对角线长度⁴ | 跳过 | 跳过 |
-| **medsam2** | `max(p95(d(pred→gt)), p95(d(gt→pred)))` | 在 [0,0] 设点⁵ | 在 [0,0] 设点 | 在 [0,0] 设点 |
-| **medsegx** | `max(p95(d(pred→gt)), p95(d(gt→pred)))` | 0.0 | 0.0 | 0.0 |
-| **transunet** | `medpy.metric.binary.hd95()` | 0.0 | 0.0 | 0.0 |
-| **ultrafedfm** | `max(p95(d(pred→gt)), p95(d(gt→pred)))` | 0.0 | 0.0 | 0.0 |
-
-> ⁴ 返回 `sqrt(H² + W²)`，惩罚假阴性（大距离）
-> ⁵ 在 [0,0] 处设置一个点后正常计算，距离取决于预测位置
-
-**核心算法相同**：除 transunet 使用 `medpy` 库外，其余 4 个均采用相同的对称 EDT 方法：`d = max(p95(d(pred→gt)), p95(d(gt→pred)))`。
-
-**关键差异在边界情况**：
-- **假阴性（FN，预空 GT 非空）**：dinov3_unet 返回最大距离（最严格），medsam2 在原点设点（中间值），medsegx/transunet/ultrafedfm 返回 0.0（最宽松）。
-- **假阳性（FP，预非空 GT 空）**：dinov3_unet 跳过，medsam2 在原点设点，medsegx/transunet/ultrafedfm 返回 0.0。
-
-#### 1.3 CI95 置信区间
-
-| 模型 | 方法 | 默认迭代次数 |
+| 文件 | 后缀 | 说明 |
 |---|---|---|
-| **dinov3_unet** | Bootstrap（百分位法） | 5000 |
-| **medsam2** | 正态近似（`1.96σ/√n`） | — |
-| **medsegx** | Bootstrap（百分位法） | 2000 |
-| **transunet** | 正态近似（`1.96σ/√n`） | — |
-| **ultrafedfm** | Bootstrap（百分位法） | 2000 |
+| 原图 | 无 | 超声图像，支持 `.png` `.jpg` `.jpeg` `.bmp` `.tiff` `.tif` `.webp` |
+| 腺体掩码 | `_ORG1` | 灰度图，前景像素 > 0 为甲状腺腺体 |
+| 结节掩码 | `_ROI1` | 灰度图，前景像素 > 0 为结节区域 |
+| 标签文件 | `.ini` | INI 格式，包含良恶性与 TI-RADS 分级 |
 
-**差异**：medsam2 和 transunet 使用正态近似（速度快但假设正态分布），dinov3_unet/medsegx/ultrafedfm 使用 Bootstrap（更稳健但计算更慢）。
+> 掩码文件必须与原图**同名 + 后缀**（`_ORG1` / `_ROI1`）+ **同扩展名**。例如原图为 `case001.png`，则腺体掩码必须为 `case001_ORG1.png`，结节掩码为 `case001_ROI1.png`。
+
+**INI 标签文件格式**：
+
+标签从 `[ROI1]` 节（第一个非空的 ROI 节）中读取两个字段：
+
+```ini
+[ROI1]
+pathologic=良性          ; 良恶性标签
+birads=2类               ; TI-RADS 分级
+```
+
+字段映射规则：
+
+| 字段 | 取值 | 映射结果 |
+|---|---|---|
+| `pathologic` | `良` / `良性` / `0` / `benign` | `malignancy=0`（良性）|
+| | `恶` / `恶性` / `1` / `malignant` / `癌` | `malignancy=1`（恶性）|
+| | 空 / 未知 | `malignancy=-1`（缺失）|
+| `birads` | `1类` | `tirads=1` |
+| | `2类` | `tirads=2` |
+| | `3类` | `tirads=3` |
+| | `4a类` / `4b类` / `4c类` | `tirads=4` |
+| | `5类` | `tirads=5` |
+| | 空 / 未知 | `tirads=-1`（缺失）|
+
+### 预处理输出结构（pipeline.py 输出）
+
+`pipeline.py` 预处理后的数据默认输出到 `datasets/processed/`，结构如下：
+
+```
+datasets/processed/
+├── images/          # ROI 裁剪后的原图（文件名保持不变）
+├── gland_masks/     # 对齐裁剪后的腺体掩码
+├── nodule_masks/    # 对齐裁剪后的结节掩码
+├── labels.json      # 分类标签（malignancy + tirads）
+└── config.yaml      # 自动生成的配置文件，路径指向本目录
+```
+
+- 若启用 ROI 提取（提供 `roi_checkpoint`），原图和掩码会被裁剪到甲状腺区域并对齐；否则直接复制
+- `labels.json` 的格式见上方[标签文件格式](#标签文件格式)小节
+- 自动生成的 `config.yaml` 会将四个任务（gland / nodule / binary / tirads）的数据路径都指向本目录
 
 ---
 
-### 二、分类指标
+## 统一指标计算
 
-#### 2.1 指标集合（相同）
+项目通过 `seg_metrics.py` 和 `cls_metrics.py` 两个模块统一所有模型的指标计算方式，确保跨模型公平比较。
 
-所有 4 个分类模型计算**完全相同**的 6 个指标：
+### 分割指标（seg_metrics.py）
+
+所有 5 个分割模型共享相同的指标计算方式：
+
+| 指标 | 计算方式 | 边界情况 |
+|---|---|---|
+| **Dice** | `2\|P∩G\| / (\|P\|+\|G\|)`，无 smooth | TN（两空）= 1.0，FP/FN = 0.0 |
+| **HD95** | `max(p95(d(pred→gt)), p95(d(gt→pred)))`，scipy EDT | 任一侧为空 = 0.0 |
+| **CI95** | Bootstrap 百分位法，`n_boot=2000`，`seed=42` | — |
+
+GT 二值化：`> 0`（任意非零像素视为前景）。
+
+> **注意**：`seg_metrics.py` 同时提供类式 API（`Dice`、`HD95`、`ECE`，供 `dinov3_unet` 使用），在 GT 为空时返回 `None`（跳过该样本），与函数式 API 略有不同。`infer_dinov3_unet/metrics.py` 为旧版本，已由项目级 `seg_metrics.py` 替代。
+
+### 分类指标（cls_metrics.py）
+
+所有 4 个分类模型共享相同的指标计算方式：
 
 | 指标 | 说明 |
 |---|---|
 | AUROC | ROC 曲线下面积 |
-| AUPRC | PR 曲线下面积 / Average Precision |
+| AUPRC | PR 曲线下面积（macro 平均） |
 | Accuracy | 准确率 |
 | Precision | 精确率 |
 | Recall | 召回率 |
 | F1 | F1 分数 |
 
-均使用 `sklearn.metrics` 库计算。
+- 二分类：`average="binary"`（默认正类 index=1）
+- 多分类：`average="macro"`
+- CI95：Bootstrap 百分位法，`n_boot=2000`，`seed=42`
+- 标签为 `-1`（缺失）的样本会被自动过滤
 
-#### 2.2 二分类的平均方式（有差异）
+### 性能汇总
 
-| 模型 | 二分类 Precision/Recall/F1 的 average 参数 |
-|---|---|
-| **biomedclip** | `average="macro"` |
-| **medsiglip** | `average="binary"`（默认正类） |
-| **dinov3_unet_multitask** | `average="binary"`（默认正类） |
-| **ultrafedfm** | `average="macro"` |
+`run_all.py` 运行结束后自动生成汇总报告：
 
-**差异**：`binary` 仅报告正类（index=1）的指标，`macro` 对两个类取宏平均。对于平衡数据集差异小，对于不平衡数据集 macro 会拉低正类指标。
+- 终端打印：每个任务的性能表格（含 CI95）
+- `results/summary.log`：完整的运行状态 + 性能指标
 
-> **biomedclip 额外输出正类指标**：除了 macro 指标外，biomedclip 还单独计算 `Precision_pos`、`Recall_pos`、`F1_pos`，因此信息最全面。
+汇总时自动解析各模型输出的 `metrics.log` 文件，统一格式：
 
-#### 2.3 多分类 AUPRC 计算方式（有差异）
+```
+MetricName:  0.1234  (95% CI: [0.1000, 0.2000])
+```
 
-| 模型 | 多分类 AUPRC 输入 |
-|---|---|
-| **biomedclip** | `average_precision_score(y_true, y_prob, average="macro")` — 直接传整数标签 |
-| **medsiglip** | `average_precision_score(labels, probs, average="macro")` — 直接传整数标签 |
-| **dinov3_unet_multitask** | `average_precision_score(y_onehot, y_probs, average="macro")` — 先 one-hot |
-| **ultrafedfm** | `average_precision_score(np.eye(C)[y_true], y_score, average="macro")` — 先 one-hot |
+### 配置参数
 
-**差异**：sklearn 的 `average_precision_score` 对于整数标签输入会内部 one-hot，因此**结果在数值上等价**。但传 one-hot 矩阵更明确，避免 sklearn 版本差异。
+`config.yaml` 中的关键参数：
 
-#### 2.4 Bootstrap CI95（有差异）
-
-| 模型 | 点估计来源 | Bootstrap 迭代 | 缺类处理 | 随机数生成器 |
-|---|---|---|---|---|
-| **biomedclip** | 全量数据 | 2000 | 跳过该次 | `np.random.RandomState(42)` |
-| **medsiglip** | 全量数据 | 2000 | 跳过该次 | `np.random.RandomState(42)` |
-| **dinov3_unet_multitask** | Bootstrap 均值⁶ | 2000 | 返回 nan | `np.random.default_rng(0)` |
-| **ultrafedfm** | 全量数据 | 2000 | 跳过该次 | `np.random.RandomState(42)` |
-
-> ⁶ dinov3_unet_multitask 报告的 "mean" 是 **Bootstrap 采样均值的均值**，而非全量数据的点估计。这在 Bootstrap 分布有偏时会与全量点估计略有不同。
-
-**差异**：
-- **点估计来源**：dinov3_unet_multitask 使用 Bootstrap 均值作为点估计，其余 3 个使用全量数据点估计。
-- **随机数生成器**：dinov3_unet_multitask 使用 `default_rng`（新版 API），其余使用 `RandomState`（旧版 API），相同 seed 下结果不同。
-- **默认 seed**：dinov3_unet_multitask 用 seed=0，其余用 seed=42。
-
----
-
-### 三、差异汇总
-
-#### 分割指标差异影响
-
-| 差异点 | 影响程度 | 受影响模型 |
-|---|---|---|
-| Dice smooth 项 | 低（仅对小目标有微小影响） | dinov3_unet, medsam2 |
-| Dice 两空返回值 | **高**（直接影响均值） | 全部 |
-| HD95 假阴性处理 | **高**（0 vs 最大距离差异巨大） | 全部 |
-| HD95 假阳性处理 | **高** | 全部 |
-| CI95 方法 | 中（Bootstrap vs 正态近似在小样本时差异大） | 全部 |
-
-#### 分类指标差异影响
-
-| 差异点 | 影响程度 | 受影响模型 |
-|---|---|---|
-| 二分类 average 参数 | **高**（binary vs macro 结果不同） | 全部 |
-| 点估计来源 | 中（Bootstrap 均值 vs 全量点估计） | dinov3_unet_multitask |
-| 随机数生成器 | 低（影响 CI 区间但非点估计） | dinov3_unet_multitask |
-| AUPRC one-hot 方式 | 无（数值等价） | 无 |
-
-### 四、结论
-
-**分割指标不完全相同**：虽然 Dice 和 HD95 的核心计算公式相同，但在**边界情况处理**（空预测、空 GT）上存在显著差异，这会导致不同模型在同一数据集上的指标**不可直接比较**。特别是 HD95 的假阴性处理，dinov3_unet 返回最大距离而 medsegx/ultrafedfm 返回 0.0，差异可达数百像素。
-
-**分类指标在二分类下不完全相同**：biomedclip 和 ultrafedfm 使用 `macro` 平均，medsiglip 和 dinov3_unet_multitask 使用 `binary` 平均。多分类下指标计算方式基本一致（均 macro），但 dinov3_unet_multitask 的点估计来自 Bootstrap 均值而非全量数据，略有不同。
-
-**建议**：如需跨模型公平比较，应统一指标计算的边界处理策略和平均方式。
+```yaml
+n_bootstrap: 2000    # Bootstrap CI95 迭代次数（所有模型共享）
+device: cuda         # 推理设备
+output_root: ./results   # 输出根目录
+save_masks: false        # 是否保存分割预测掩码
+```
