@@ -425,8 +425,10 @@ def run_command(cmd, cwd=None):
 # ============================================================================
 
 # 匹配统一格式的指标行: "MetricName:  0.1234  (95% CI: [0.1000, 0.2000])"
+# 允许名字与冒号间有填充空格（分类模型用 {name:<12s}: 格式），
+# 并用 search 而非 match 以支持带前缀的日志行（如 medsam2 的 "时间 [INFO] Dice: ..."）。
 _METRIC_RE = re.compile(
-    r'^(\w+):\s+([\d.]+)\s+\(95% CI: \[([\d.]+),\s+([\d.]+)\]\)'
+    r'(\w+)\s*:\s+([\d.]+)\s+\(95% CI: \[([\d.]+),\s+([\d.]+)\]\)'
 )
 
 # 使用 --log_dir（目录形式，文件名带时间戳）的模型
@@ -463,7 +465,7 @@ def _parse_metrics_log(log_path):
     try:
         with open(log_path, "r", encoding="utf-8") as f:
             for line in f:
-                m = _METRIC_RE.match(line.strip())
+                m = _METRIC_RE.search(line.strip())
                 if m:
                     name, val, lo, hi = m.groups()
                     metrics[name] = (float(val), float(lo), float(hi))
