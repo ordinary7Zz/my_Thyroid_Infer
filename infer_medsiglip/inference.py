@@ -49,7 +49,12 @@ from tqdm import tqdm
 
 from model import MedSigLIPClassifier
 from transforms import get_val_transforms
-from metrics import compute_all_metrics, format_metrics_report
+
+# 使用项目级统一分类指标模块
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+from cls_metrics import compute_all_metrics, format_metrics_report
 
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
@@ -396,8 +401,8 @@ def main():
             return
 
         metrics = compute_all_metrics(
-            labels, preds, probs, is_binary,
-            n_bootstrap=args.n_bootstrap,
+            labels, preds, probs, n_effective_classes,
+            n_boot=args.n_bootstrap,
         )
 
         report = format_metrics_report(

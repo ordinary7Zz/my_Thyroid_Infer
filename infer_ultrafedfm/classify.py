@@ -14,6 +14,7 @@ Usage examples:
 """
 
 import os
+import sys
 import csv
 import json
 import math
@@ -30,6 +31,12 @@ from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from tqdm import tqdm
 
 import models_vit
+
+# 使用项目级统一分类指标模块
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+from cls_metrics import compute_all_metrics
 
 
 SUPPORTED_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp'}
@@ -143,105 +150,8 @@ def load_labels(label_file, label_field, image_names):
 
 
 # ---------------------------------------------------------------------------
-# Metrics
+# Metrics — 使用项目级统一指标模块 (cls_metrics)
 # ---------------------------------------------------------------------------
-def bootstrap_ci(metric_fn, y_true, y_pred, y_score, n_bootstrap=2000, seed=0, alpha=0.05):
-    """Bootstrap 95% confidence interval.
-    与 dinov3_unet_multitask 的实现方式一致：使用 default_rng，点估计取 Bootstrap 均值。
-    """
-    rng = np.random.default_rng(seed)
-    n = len(y_true)
-    values = []
-    for _ in range(n_bootstrap):
-        idx = rng.integers(0, n, n)
-        yt = y_true[idx]
-        yp = y_pred[idx]
-        ys = y_score[idx] if y_score is not None else None
-        try:
-            v = metric_fn(yt, yp, ys)
-            if v is not None and not (isinstance(v, float) and math.isnan(v)):
-                values.append(v)
-        except Exception:
-            pass
-
-    if len(values) == 0:
-        return float('nan'), float('nan')
-    mean = float(np.mean(values))
-    lower = np.percentile(values, 100 * alpha / 2)
-    upper = np.percentile(values, 100 * (1 - alpha / 2))
-    return mean, float(lower), float(upper)
-
-
-def compute_all_metrics(y_true, y_pred, y_score, nb_classes, n_bootstrap=2000):
-    """Compute AUROC, AUPRC, Accuracy, Precision, F1, Recall + CI95.
-    
-    二分类用 binary average，多分类用 macro average。
-    点估计取 Bootstrap 采样均值，与 dinov3_unet_multitask 一致。
-    """
-    from sklearn.metrics import (
-        roc_auc_score, average_precision_score,
-        accuracy_score, precision_score, f1_score, recall_score,
-    )
-
-    y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
-    y_score = np.array(y_score)
-
-    # Auto-remap 1-indexed labels (e.g. TIRADS 1-5) to 0-indexed (0-4)
-    # Only y_true needs remapping; y_pred is already 0-indexed from argmax
-    label_min = y_true.min()
-    label_max = y_true.max()
-    if label_min >= 1 and label_max >= nb_classes:
-        offset = label_min
-        y_true = y_true - offset
-        print('Auto-remapped true labels from {}-{} to 0-{}'.format(
-            offset, label_max, label_max - offset))
-
-    is_binary = (nb_classes == 2)
-    avg = 'binary' if is_binary else 'macro'
-
-    # --- metric functions for bootstrap ---
-    def _auroc_fn(yt, yp, ys):
-        if is_binary:
-            return roc_auc_score(yt, ys[:, 1])
-        else:
-            return roc_auc_score(yt, ys, multi_class='ovr', average='macro')
-
-    def _auprc_fn(yt, yp, ys):
-        if is_binary:
-            return average_precision_score(yt, ys[:, 1])
-        else:
-            return average_precision_score(np.eye(nb_classes)[yt], ys, average='macro')
-
-    def _acc_fn(yt, yp, ys):
-        return accuracy_score(yt, yp)
-
-    def _prec_fn(yt, yp, ys):
-        return precision_score(yt, yp, average=avg, zero_division=0)
-
-    def _f1_fn(yt, yp, ys):
-        return f1_score(yt, yp, average=avg, zero_division=0)
-
-    def _rec_fn(yt, yp, ys):
-        return recall_score(yt, yp, average=avg, zero_division=0)
-
-    fns = {
-        'AUROC': _auroc_fn,
-        'AUPRC': _auprc_fn,
-        'Accuracy': _acc_fn,
-        'Precision': _prec_fn,
-        'F1': _f1_fn,
-        'Recall': _rec_fn,
-    }
-
-    # --- CI95 via bootstrap (点估计取 Bootstrap 均值) ---
-    metrics = {}
-    for name, fn in fns.items():
-        mean, lo, hi = bootstrap_ci(fn, y_true, y_pred, y_score, n_bootstrap=n_bootstrap)
-        metrics[name] = mean
-        metrics['{}_CI95'.format(name)] = (lo, hi)
-
-    return metrics
 
 
 # ---------------------------------------------------------------------------
@@ -369,24 +279,23 @@ def main():
         y_score = np.array([scores[i] for i in valid_idx])
 
         metrics = compute_all_metrics(
-            y_true, y_pred, y_score, args.nb_classes, n_bootstrap=args.n_bootstrap
+            y_true, y_pred, y_score, args.nb_classes, n_boot=args.n_bootstrap
         )
 
         # 统一输出
         print("=" * 60)
         print(f"评估样本数: {len(valid_idx)}")
         for name in ['AUROC', 'AUPRC', 'Accuracy', 'Precision', 'F1', 'Recall']:
-            val = metrics[name]
-            ci = metrics['{}_CI95'.format(name)]
-            print(f"{name:<12s}: {val:.4f}  (95% CI: [{ci[0]:.4f}, {ci[1]:.4f}])")
+            m = metrics[name]
+            print(f"{name:<12s}: {m['value']:.4f}  (95% CI: [{m['ci_lower']:.4f}, {m['ci_upper']:.4f}])")
         print("=" * 60)
 
         os.makedirs(os.path.dirname(os.path.abspath(args.output_log)), exist_ok=True)
         with open(args.output_log, 'w', encoding='utf-8') as f:
             f.write(f"评估样本数: {len(valid_idx)}\n")
             for name in ['AUROC', 'AUPRC', 'Accuracy', 'Precision', 'F1', 'Recall']:
-                val = metrics[name]
-                ci = metrics['{}_CI95'.format(name)]
+                m = metrics[name]
+                f.write(f"{name:<12s}: {m['value']:.4f}  (95% CI: [{m['ci_lower']:.4f}, {m['ci_upper']:.4f}])\n")
                 f.write(f"{name:<12s}: {val:.4f}  (95% CI: [{ci[0]:.4f}, {ci[1]:.4f}])\n")
 
 

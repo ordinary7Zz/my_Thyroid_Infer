@@ -64,13 +64,14 @@ from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
 
-# ---- scikit-learn 用于评估指标 ----
+# 使用项目级统一分类指标模块
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+from cls_metrics import bootstrap_ci as _bootstrap_ci, format_metrics_report
+
 try:
-    from sklearn.metrics import (
-        accuracy_score, precision_score, recall_score, f1_score,
-        roc_auc_score, average_precision_score,
-        confusion_matrix, classification_report,
-    )
+    from sklearn.metrics import confusion_matrix
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -415,154 +416,12 @@ def save_csv(output_path: str, filenames: list, all_probs: np.ndarray,
 
 
 # ============================================================================
-# 评估：指标计算 + Bootstrap CI95
+# 评估：使用项目级统一指标模块 (cls_metrics)
 # ============================================================================
-
-def _safe_auroc(y_true, y_prob, num_classes):
-    """
-    计算 AUROC。
-    - 二分类: 使用正类（index=1）概率
-    - 多分类: macro-average One-vs-Rest
-    返回 float 或 nan
-    """
-    try:
-        if num_classes == 2:
-            return roc_auc_score(y_true, y_prob[:, 1])
-        else:
-            return roc_auc_score(y_true, y_prob, multi_class="ovr",
-                                 average="macro")
-    except (ValueError, IndexError):
-        return float("nan")
-
-
-def _safe_auprc(y_true, y_prob, num_classes):
-    """
-    计算 AUPRC (Average Precision)。
-    - 二分类: 使用正类（index=1）概率
-    - 多分类: one-hot + macro-average
-    返回 float 或 nan
-    """
-    try:
-        if num_classes == 2:
-            return average_precision_score(y_true, y_prob[:, 1])
-        else:
-            y_onehot = np.eye(num_classes)[y_true]
-            return average_precision_score(y_onehot, y_prob, average="macro")
-    except (ValueError, IndexError):
-        return float("nan")
-
-
-def compute_point_metrics(y_true, y_pred, y_prob, num_classes):
-    """
-    计算单次（点估计）分类性能指标。
-    二分类用 binary average，多分类用 macro average。
-    返回 dict。
-    """
-    is_binary = (num_classes == 2)
-    avg = "binary" if is_binary else "macro"
-
-    metrics = {
-        "AUROC": _safe_auroc(y_true, y_prob, num_classes),
-        "AUPRC": _safe_auprc(y_true, y_prob, num_classes),
-        "Accuracy": accuracy_score(y_true, y_pred),
-        "Precision": precision_score(y_true, y_pred, average=avg,
-                                     zero_division=0),
-        "Recall": recall_score(y_true, y_pred, average=avg,
-                               zero_division=0),
-        "F1": f1_score(y_true, y_pred, average=avg, zero_division=0),
-    }
-
-    return metrics
-
-
-def bootstrap_ci(y_true, y_pred, y_prob, num_classes,
-                 n_bootstrap=2000, seed=0, ci=0.95):
-    """
-    Bootstrap 95% 置信区间。
-    点估计取 Bootstrap 采样均值，CI 取百分位区间。
-    与 dinov3_unet_multitask 的实现方式一致。
-
-    返回:
-        results: dict {metric_name: (mean, ci_lower, ci_upper)}
-        valid_iters: 有效迭代次数
-    """
-    rng = np.random.default_rng(seed)
-    n = len(y_true)
-    alpha = 1.0 - ci
-
-    metric_names = [
-        "AUROC", "AUPRC", "Accuracy",
-        "Precision", "Recall", "F1",
-    ]
-
-    boot_values = {name: [] for name in metric_names}
-
-    valid_iters = 0
-    for _ in tqdm(range(n_bootstrap), desc="Bootstrap", leave=False):
-        idx = rng.integers(0, n, n)
-        bt_true = y_true[idx]
-        bt_pred = y_pred[idx]
-        bt_prob = y_prob[idx]
-
-        # 多分类 bootstrap 时可能缺少某些类别，跳过
-        if len(np.unique(bt_true)) < 2:
-            continue
-
-        bt_metrics = compute_point_metrics(bt_true, bt_pred, bt_prob,
-                                            num_classes)
-        for name in metric_names:
-            val = bt_metrics[name]
-            if not np.isnan(val):
-                boot_values[name].append(val)
-
-        valid_iters += 1
-
-    if valid_iters == 0:
-        print("  ⚠ Bootstrap 有效迭代次数为 0，无法计算置信区间")
-        valid_iters = 1
-
-    results = {}
-    for name in metric_names:
-        vals = np.array(boot_values[name])
-        if len(vals) == 0:
-            mean, ci_lo, ci_hi = float("nan"), float("nan"), float("nan")
-        else:
-            mean = float(vals.mean())
-            ci_lo = float(np.percentile(vals, 100 * alpha / 2))
-            ci_hi = float(np.percentile(vals, 100 * (1 - alpha / 2)))
-        results[name] = (mean, ci_lo, ci_hi)
-
-    return results, valid_iters
-
-
-def format_eval_report(results, cm, class_names, num_samples,
-                       num_classes, y_true, y_pred, n_bootstrap,
-                       valid_iters):
-    """
-    格式化评估报告为字符串（统一格式）。
-    results: dict {metric: (point, ci_lo, ci_hi)}
-    """
-    lines = []
-    lines.append("=" * 60)
-    lines.append(f"评估样本数: {num_samples}")
-
-    main_metrics = [
-        "AUROC", "AUPRC", "Accuracy", "Precision", "F1", "Recall",
-    ]
-    for key in main_metrics:
-        if key in results:
-            mean, ci_lo, ci_hi = results[key]
-            lines.append(f"{key:<12s}: {mean:.4f}  (95% CI: [{ci_lo:.4f}, {ci_hi:.4f}])")
-
-    lines.append("=" * 60)
-    return "\n".join(lines)
-
 
 def run_evaluation(filenames, all_probs, label_map, class_names,
                    num_classes, eval_output, n_bootstrap, seed):
-    """
-    对有标签的样本进行评估，保存结果到 .log 文件。
-    """
+    """对有标签的样本进行评估，保存结果到 .log 文件。"""
     if not SKLEARN_AVAILABLE:
         print("  ⚠ scikit-learn 未安装，无法进行性能评估。请执行: pip install scikit-learn")
         return
@@ -594,8 +453,6 @@ def run_evaluation(filenames, all_probs, label_map, class_names,
             print(f"    {fname}: {label}")
         if len(out_of_range) > 10:
             print(f"    ... 共 {len(out_of_range)} 条")
-        y_pred_list.append(pred_idx)
-        y_prob_list.append(probs)
 
     if not y_true_list:
         print("  ⚠ 没有找到任何匹配的标签记录，无法评估。"
@@ -606,22 +463,14 @@ def run_evaluation(filenames, all_probs, label_map, class_names,
     y_pred = np.array(y_pred_list)
     y_prob = np.array(y_prob_list)
 
-    num_eval = len(y_true)
-
-    # 混淆矩阵
-    cm = confusion_matrix(y_true, y_pred)
-
-    # Bootstrap CI95
-    results, valid_iters = bootstrap_ci(
+    # Bootstrap CI95 (统一模块)
+    results, valid_iters = _bootstrap_ci(
         y_true, y_pred, y_prob, num_classes,
-        n_bootstrap=n_bootstrap, seed=seed,
+        n_boot=n_bootstrap, seed=seed,
     )
 
     # 生成报告
-    report_str = format_eval_report(
-        results, cm, class_names, num_eval, num_classes,
-        y_true, y_pred, n_bootstrap, valid_iters,
-    )
+    report_str = format_metrics_report(results, labels=y_true)
 
     # 打印到终端
     print(report_str)

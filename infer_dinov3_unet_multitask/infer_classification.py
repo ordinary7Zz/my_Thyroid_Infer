@@ -49,7 +49,12 @@ from PIL import Image
 from tqdm import tqdm
 
 from model import DINOv3_S_UNet_MULTITASK
-from metrics import (
+
+# 使用项目级统一分类指标模块
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+from cls_metrics import (
     METRIC_ORDER,
     binary_bootstrap_metrics,
     multiclass_bootstrap_metrics,
