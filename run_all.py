@@ -609,18 +609,7 @@ def main():
                 results_log.append((task_id, model_name, "SKIP", 0))
                 continue
 
-            # 检查权重文件是否存在
-            weight_idx = None
-            for i, arg in enumerate(cmd):
-                if arg in ("--ckpt", "--checkpoint", "--resume", "--model_weight"):
-                    weight_idx = i + 1
-                    break
-            if weight_idx is not None and not os.path.isfile(cmd[weight_idx]):
-                print(f"  [SKIP] 权重文件不存在: {cmd[weight_idx]}")
-                skipped += 1
-                results_log.append((task_id, model_name, "SKIP (权重不存在)", 0))
-                continue
-
+            # 路径检查已由 preflight_check() 在运行前统一完成，此处直接执行
             rc, elapsed = run_command(cmd, cwd=str(ROOT))
             status = "OK" if rc == 0 else f"FAIL (rc={rc})"
             if rc == 0:
