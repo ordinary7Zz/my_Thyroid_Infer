@@ -17,8 +17,14 @@
   # 执行精简（自动备份原文件为 .bak）
   python slim_checkpoints.py
 
+  # 指定备份目录（备份文件集中存放，不占用原目录空间）
+  python slim_checkpoints.py --backup_dir /backup/checkpoints
+
   # 恢复备份
   python slim_checkpoints.py --restore
+
+  # 从指定备份目录恢复
+  python slim_checkpoints.py --restore --backup_dir /backup/checkpoints
 
   # 指定其他配置文件
   python slim_checkpoints.py --config /path/to/config.yaml
@@ -34,6 +40,9 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent
 
+# 备份目录（None = 原文件旁边，否则备份到此目录下）
+BACKUP_DIR = None
+
 
 # ============================================================================
 # 工具函数
@@ -44,18 +53,32 @@ def get_file_size(path):
     return Path(path).stat().st_size / (1024 * 1024)
 
 
+def get_backup_path(original_path):
+    """返回备份文件路径。
+
+    - 未设置 BACKUP_DIR: 原文件旁，加 .bak 后缀（如 best_model.pt.bak）
+    - 设置了 BACKUP_DIR:  统一放到 BACKUP_DIR 下，用原文件全名加 .bak
+      （如 /backup/best_model.pt.bak）
+    """
+    name = Path(original_path).name + ".bak"
+    if BACKUP_DIR is not None:
+        return Path(BACKUP_DIR) / name
+    return Path(original_path).with_suffix(Path(original_path).suffix + ".bak")
+
+
 def backup_file(path):
-    """将原文件备份为 .bak（如果 .bak 已存在则跳过）。"""
-    bak = Path(path).with_suffix(Path(path).suffix + ".bak")
+    """将原文件备份（如果备份已存在则跳过）。"""
+    bak = get_backup_path(path)
     if bak.exists():
         return False
+    bak.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(path, bak)
     return True
 
 
 def restore_file(path):
-    """从 .bak 恢复原文件。"""
-    bak = Path(path).with_suffix(Path(path).suffix + ".bak")
+    """从备份恢复原文件。"""
+    bak = get_backup_path(path)
     if not bak.exists():
         return False
     shutil.copy2(bak, path)
@@ -124,8 +147,9 @@ def slim_medsiglip(ckpt_path, dry_run=False):
     backup_file(ckpt_path)
     torch.save(ckpt, ckpt_path)
 
-    saved = get_file_size(f"{ckpt_path}.bak") - get_file_size(ckpt_path)
-    print(f"  已精简: {get_file_size(f'{ckpt_path}.bak'):.1f} MB -> {get_file_size(ckpt_path):.1f} MB "
+    bak_path = get_backup_path(ckpt_path)
+    saved = get_file_size(bak_path) - get_file_size(ckpt_path)
+    print(f"  已精简: {get_file_size(bak_path):.1f} MB -> {get_file_size(ckpt_path):.1f} MB "
           f"(节省 {saved:.1f} MB)")
     return saved
 
@@ -171,8 +195,9 @@ def slim_ultrafedfm_classify(ckpt_path, dry_run=False):
     backup_file(ckpt_path)
     torch.save(new_ckpt, ckpt_path)
 
-    saved = get_file_size(f"{ckpt_path}.bak") - get_file_size(ckpt_path)
-    print(f"  已精简: {get_file_size(f'{ckpt_path}.bak'):.1f} MB -> {get_file_size(ckpt_path):.1f} MB "
+    bak_path = get_backup_path(ckpt_path)
+    saved = get_file_size(bak_path) - get_file_size(ckpt_path)
+    print(f"  已精简: {get_file_size(bak_path):.1f} MB -> {get_file_size(ckpt_path):.1f} MB "
           f"(节省 {saved:.1f} MB)")
     return saved
 
@@ -257,8 +282,9 @@ def slim_biomedclip(ckpt_path, dry_run=False):
         new_ckpt = {"model": ckpt["model"]}
         backup_file(ckpt_path)
         torch.save(new_ckpt, ckpt_path)
-        saved = get_file_size(f"{ckpt_path}.bak") - get_file_size(ckpt_path)
-        print(f"  已精简: {get_file_size(f'{ckpt_path}.bak'):.1f} MB -> {get_file_size(ckpt_path):.1f} MB "
+        bak_path = get_backup_path(ckpt_path)
+        saved = get_file_size(bak_path) - get_file_size(ckpt_path)
+        print(f"  已精简: {get_file_size(bak_path):.1f} MB -> {get_file_size(ckpt_path):.1f} MB "
               f"(节省 {saved:.1f} MB)")
         return saved
 
@@ -368,8 +394,9 @@ def slim_generic(ckpt_path, dry_run=False):
     backup_file(ckpt_path)
     torch.save(new_ckpt, ckpt_path)
 
-    saved = get_file_size(f"{ckpt_path}.bak") - get_file_size(ckpt_path)
-    print(f"  已精简: {get_file_size(f'{ckpt_path}.bak'):.1f} MB -> {get_file_size(ckpt_path):.1f} MB "
+    bak_path = get_backup_path(ckpt_path)
+    saved = get_file_size(bak_path) - get_file_size(ckpt_path)
+    print(f"  已精简: {get_file_size(bak_path):.1f} MB -> {get_file_size(ckpt_path):.1f} MB "
           f"(节省 {saved:.1f} MB)")
     return saved
 
@@ -477,6 +504,9 @@ def main():
   # 执行精简
   python slim_checkpoints.py
 
+  # 指定备份目录
+  python slim_checkpoints.py --backup_dir /backup/checkpoints
+
   # 恢复备份
   python slim_checkpoints.py --restore
         """,
@@ -491,9 +521,19 @@ def main():
     )
     parser.add_argument(
         "--restore", action="store_true",
-        help="从 .bak 备份恢复原文件",
+        help="从备份恢复原文件",
+    )
+    parser.add_argument(
+        "--backup_dir", type=str, default=None,
+        help="备份目录（默认: 原文件旁加 .bak 后缀；指定后备份集中存放于此目录）",
     )
     args = parser.parse_args()
+
+    # 设置全局备份目录
+    global BACKUP_DIR
+    if args.backup_dir:
+        BACKUP_DIR = Path(args.backup_dir).resolve()
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
     # 加载配置
     cfg = load_config(args.config)
@@ -507,6 +547,8 @@ def main():
     if args.restore:
         print("\n" + "=" * 70)
         print("  恢复备份模式")
+        if BACKUP_DIR:
+            print(f"  备份目录: {BACKUP_DIR}")
         print("=" * 70)
         for t in targets:
             path = ROOT / t["path"] if not os.path.isabs(t["path"]) else Path(t["path"])
@@ -527,6 +569,10 @@ def main():
     print("=" * 70)
     print(f"  配置文件: {args.config}")
     print(f"  目标数量: {len(targets)}")
+    if BACKUP_DIR:
+        print(f"  备份目录: {BACKUP_DIR}")
+    else:
+        print(f"  备份方式: 原文件旁 (.bak)")
     print()
 
     total_saved = 0
