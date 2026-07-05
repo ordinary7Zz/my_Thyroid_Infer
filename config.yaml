@@ -67,6 +67,10 @@ pretrained:
 # --- 输出根目录 ---
 output_root: ./results
 
+# --- 输出选项 ---
+# 分割任务是否保存预测掩码到 results/<task>/<model>/masks/
+save_masks: true
+
 # --- 预处理参数 (pipeline.py 使用) ---
 prepare:
   input_dir:    ./datasets/甲状腺私有数据/新建文件夹

@@ -112,6 +112,39 @@ def _out(task, model, filename=""):
     return _resolve(p)
 
 
+# 分割模型的掩码输出目录 flag（参数名因模型而异）
+_MASK_DIR_FLAGS = {
+    "dinov3_unet": "--output_dir",
+    "medsam2":     "--output_dir",
+    "medsegx":     "--output_dir",
+    "transunet":   "--out_dir",
+    "ultrafedfm":  "--output_dir",
+}
+
+
+def _add_mask_output(task_id, cmds):
+    """为分割模型的命令追加掩码输出目录参数。
+
+    根据 CONFIG['save_masks'] 开关决定是否追加。
+    输出路径: results/<task>/<model>/masks/
+    """
+    if not CONFIG.get("save_masks", False):
+        return cmds
+    result = []
+    for model_name, cmd in cmds:
+        flag = _MASK_DIR_FLAGS.get(model_name)
+        if flag is None:
+            result.append((model_name, cmd))
+            continue
+        mask_path = _resolve(os.path.join(
+            CONFIG["output_root"], task_id, model_name, "masks"
+        ))
+        new_cmd = list(cmd)
+        new_cmd.extend([flag, mask_path])
+        result.append((model_name, new_cmd))
+    return result
+
+
 # ---------- 分割：腺体 ----------
 
 def _seg_gland():
@@ -170,7 +203,7 @@ def _seg_gland():
         "--output_log", _out("gland", "ultrafedfm", "metrics.log"),
     ]))
 
-    return cmds
+    return _add_mask_output("gland", cmds)
 
 
 # ---------- 分割：结节 ----------
@@ -225,7 +258,7 @@ def _seg_nodule():
         "--output_log", _out("nodule", "ultrafedfm", "metrics.log"),
     ]))
 
-    return cmds
+    return _add_mask_output("nodule", cmds)
 
 
 # ---------- 分类：良恶性二分类 ----------
@@ -447,6 +480,7 @@ _PATH_FLAGS = {
     "--input_dir", "--image_dir", "--img_dir", "--data_path", "--folder", "--input",
     "--gt_dir", "--log_dir", "--log_file", "--output_dir",
     "--output", "--output_csv", "--output_log", "--eval_output", "--log",
+    "--out_dir",
     "--model_dir", "--model_path", "--label_json", "--label_file",
 }
 
@@ -630,6 +664,7 @@ def main():
     if args.models:
         print(f"  模型筛选: {', '.join(args.models)}")
     print(f"  输出目录: {CONFIG['output_root']}")
+    print(f"  保存掩码: {CONFIG.get('save_masks', False)}")
     print(f"  设备: {CONFIG['device']}")
     print(f"  Dry run: {args.dry_run}")
     print("=" * 70)
