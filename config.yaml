@@ -69,7 +69,7 @@ output_root: ./results
 
 # --- 输出选项 ---
 # 分割任务是否保存预测掩码到 results/<task>/<model>/masks/
-save_masks: true
+save_masks: false
 
 # --- 预处理参数 (pipeline.py 使用) ---
 prepare:
