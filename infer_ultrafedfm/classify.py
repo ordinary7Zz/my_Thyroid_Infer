@@ -130,7 +130,10 @@ def load_labels(label_file, label_field, image_names):
     for rec in records:
         fname = rec['filename']
         if label_field in rec:
-            label_map[fname] = int(rec[label_field])
+            label_val = int(rec[label_field])
+            if label_val < 0:
+                continue
+            label_map[fname] = label_val
 
     true_labels = []
     for name in image_names:

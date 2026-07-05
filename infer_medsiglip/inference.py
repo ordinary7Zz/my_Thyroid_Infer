@@ -116,7 +116,10 @@ def load_labels(label_file, label_field):
                 f"Field '{label_field}' not found in entry for '{filename}'. "
                 f"Available fields: {list(item.keys())}"
             )
-        label_map[filename] = int(item[label_field])
+        label_val = int(item[label_field])
+        if label_val < 0:
+            continue
+        label_map[filename] = label_val
 
     return label_map
 

@@ -23,7 +23,9 @@
 """
 
 import argparse
+import glob
 import os
+import re
 import subprocess
 import sys
 import time
@@ -387,6 +389,58 @@ def run_command(cmd, cwd=None):
     return proc.returncode, elapsed
 
 
+# ============================================================================
+# 指标日志解析
+# ============================================================================
+
+# 匹配统一格式的指标行: "MetricName:  0.1234  (95% CI: [0.1000, 0.2000])"
+_METRIC_RE = re.compile(
+    r'^(\w+):\s+([\d.]+)\s+\(95% CI: \[([\d.]+),\s+([\d.]+)\]\)'
+)
+
+# 使用 --log_dir（目录形式，文件名带时间戳）的模型
+_LOG_DIR_MODELS = {"dinov3_unet", "medsam2"}
+
+
+def _find_metrics_log(task_id, model_name):
+    """查找模型的 metrics log 文件路径。
+
+    - dinov3_unet / medsam2 使用 --log_dir（目录），文件名含时间戳，取最新 .log
+    - 其他模型使用固定文件名 metrics.log
+    """
+    out_dir = _resolve(os.path.join(CONFIG["output_root"], task_id, model_name))
+
+    if model_name in _LOG_DIR_MODELS:
+        # 找目录下最新的 infer_*.log
+        candidates = sorted(glob.glob(os.path.join(out_dir, "infer_*.log")),
+                            key=os.path.getmtime, reverse=True)
+        return candidates[0] if candidates else None
+    else:
+        p = os.path.join(out_dir, "metrics.log")
+        return p if os.path.isfile(p) else None
+
+
+def _parse_metrics_log(log_path):
+    """解析统一格式的 metrics log 文件。
+
+    返回 dict: {metric_name: (value, ci_lo, ci_hi)}，解析失败返回空 dict。
+    """
+    if not log_path or not os.path.isfile(log_path):
+        return {}
+
+    metrics = {}
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            for line in f:
+                m = _METRIC_RE.match(line.strip())
+                if m:
+                    name, val, lo, hi = m.groups()
+                    metrics[name] = (float(val), float(lo), float(hi))
+    except Exception:
+        pass
+    return metrics
+
+
 # 不需要解析的命令行 flag（后面紧跟的值是路径，需要解析）
 _PATH_FLAGS = {
     "--ckpt", "--checkpoint", "--resume", "--model_weight",
@@ -565,6 +619,7 @@ def main():
     failed = 0
     skipped = 0
     results_log = []
+    all_metrics = {}  # (task_id, model_name) -> {metric: (val, lo, hi)}
 
     print("=" * 70)
     print("  统一推理脚本")
@@ -629,6 +684,11 @@ def main():
             status = "OK" if rc == 0 else f"FAIL (rc={rc})"
             if rc == 0:
                 success += 1
+                # 解析指标日志
+                log_path = _find_metrics_log(task_id, model_name)
+                metrics = _parse_metrics_log(log_path)
+                if metrics:
+                    all_metrics[(task_id, model_name)] = metrics
             else:
                 failed += 1
             results_log.append((task_id, model_name, status, elapsed))
@@ -646,6 +706,41 @@ def main():
         print(f"  {task_id:10s} {model_name:25s} {status:20s} {elapsed:7.1f}s")
     print(f"{'=' * 70}")
 
+    # 性能指标汇总
+    if all_metrics:
+        print(f"\n{'=' * 70}")
+        print("  性能指标汇总")
+        print(f"{'=' * 70}")
+        for task_id in args.tasks:
+            task_metrics = {k: v for k, v in all_metrics.items()
+                           if k[0] == task_id}
+            if not task_metrics:
+                continue
+            print(f"\n  [{task_id}] {TASKS[task_id]['desc']}")
+            print(f"  {'─' * 64}")
+            # 收集所有指标名
+            metric_names = []
+            for metrics in task_metrics.values():
+                for name in metrics:
+                    if name not in metric_names:
+                        metric_names.append(name)
+            # 表头
+            header = f"  {'模型':25s}"
+            for name in metric_names:
+                header += f" {name:>18s}"
+            print(header)
+            print(f"  {'─' * 64}")
+            for (tid, model_name), metrics in task_metrics.items():
+                row = f"  {model_name:25s}"
+                for name in metric_names:
+                    if name in metrics:
+                        val, lo, hi = metrics[name]
+                        row += f" {val:.4f} [{lo:.4f},{hi:.4f}]"
+                    else:
+                        row += f" {'N/A':>18s}"
+                print(row)
+        print(f"\n{'=' * 70}")
+
     # 保存汇总到文件
     summary_path = os.path.join(CONFIG["output_root"], "summary.log")
     os.makedirs(CONFIG["output_root"], exist_ok=True)
@@ -654,9 +749,46 @@ def main():
         f.write(f"运行时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"任务: {', '.join(args.tasks)}\n")
         f.write(f"总计: {total}  成功: {success}  失败: {failed}  跳过: {skipped}\n")
+        f.write("=" * 70 + "\n")
+        f.write("运行状态\n")
+        f.write("-" * 70 + "\n")
+        f.write(f"  {'任务':10s} {'模型':25s} {'状态':20s} {'耗时':>8s}\n")
         f.write("-" * 70 + "\n")
         for task_id, model_name, status, elapsed in results_log:
             f.write(f"  {task_id:10s} {model_name:25s} {status:20s} {elapsed:7.1f}s\n")
+
+        # 性能指标
+        if all_metrics:
+            f.write("\n" + "=" * 70 + "\n")
+            f.write("性能指标 (mean + 95% CI)\n")
+            f.write("=" * 70 + "\n")
+            for task_id in args.tasks:
+                task_metrics = {k: v for k, v in all_metrics.items()
+                               if k[0] == task_id}
+                if not task_metrics:
+                    continue
+                f.write(f"\n[{task_id}] {TASKS[task_id]['desc']}\n")
+                f.write("-" * 70 + "\n")
+                metric_names = []
+                for metrics in task_metrics.values():
+                    for name in metrics:
+                        if name not in metric_names:
+                            metric_names.append(name)
+                # 表头
+                header = f"  {'模型':25s}"
+                for name in metric_names:
+                    header += f" {name:>22s}"
+                f.write(header + "\n")
+                f.write("-" * 70 + "\n")
+                for (tid, model_name), metrics in task_metrics.items():
+                    row = f"  {model_name:25s}"
+                    for name in metric_names:
+                        if name in metrics:
+                            val, lo, hi = metrics[name]
+                            row += f" {val:.4f} [{lo:.4f},{hi:.4f}]"
+                        else:
+                            row += f" {'N/A':>22s}"
+                    f.write(row + "\n")
     print(f"\n  汇总报告已保存至: {summary_path}")
 
 
