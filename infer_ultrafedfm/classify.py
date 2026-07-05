@@ -296,7 +296,6 @@ def main():
             for name in ['AUROC', 'AUPRC', 'Accuracy', 'Precision', 'F1', 'Recall']:
                 m = metrics[name]
                 f.write(f"{name:<12s}: {m['value']:.4f}  (95% CI: [{m['ci_lower']:.4f}, {m['ci_upper']:.4f}])\n")
-                f.write(f"{name:<12s}: {val:.4f}  (95% CI: [{ci[0]:.4f}, {ci[1]:.4f}])\n")
 
 
 
