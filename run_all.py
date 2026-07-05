@@ -135,7 +135,7 @@ def _seg_gland():
         "--image_dir", img,
         "--checkpoint", w["medsam2"],
         "--gt_dir", gt,
-        "--config", pt["medsam2_config"],
+        "--config", os.path.basename(pt["medsam2_config"]),
         "--log_dir", _out("gland", "medsam2"),
     ]))
 
@@ -193,7 +193,7 @@ def _seg_nodule():
         "--image_dir", img,
         "--checkpoint", w["medsam2"],
         "--gt_dir", gt,
-        "--config", pt["medsam2_config"],
+        "--config", os.path.basename(pt["medsam2_config"]),
         "--log_dir", _out("nodule", "medsam2"),
     ]))
 
@@ -499,7 +499,22 @@ def preflight_check(tasks, models_filter=None):
                 if pt_type == "dir":
                     _check_dir(pt[pt_key], desc)
                 else:
-                    _check_file(pt[pt_key], desc)
+                    # medsam2 的 config 参数：run_all 传裸文件名，
+                    # 由 infer_medsam2/infer.py 在 <脚本目录>/sam2/configs/ 下查找。
+                    # 预检查也按相同方式查找。
+                    if model_name == "medsam2":
+                        fname = os.path.basename(pt[pt_key])
+                        candidates = [
+                            os.path.join(ROOT, "infer_medsam2", "sam2", "configs", fname),
+                            os.path.join(ROOT, "infer_medsam2", "sam2", fname),
+                            os.path.join(ROOT, "infer_medsam2", fname),
+                        ]
+                        found = any(os.path.isfile(c) for c in candidates)
+                        if not found:
+                            missing.append(("文件", desc, pt[pt_key],
+                                            " 或 ".join(candidates)))
+                    else:
+                        _check_file(pt[pt_key], desc)
 
     return missing
 
