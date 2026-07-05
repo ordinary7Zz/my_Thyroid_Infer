@@ -1,0 +1,194 @@
+nohup: ignoring input
+===== 22:36:56 上传: ./infer_biomedclip/checkpoints/BM_2cls/best_model.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/02a3f74acb3846938ae1aa4831b11219693b874d
+
+===== 22:36:59 上传: ./infer_biomedclip/checkpoints/TIRADS_5cls/best_model.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/a951791ce1d95e46a43bd9364bf31d19be049f04
+
+===== 22:37:02 上传: ./infer_biomedclip/pretrained_models/biomedclip/open_clip_pytorch_model.bin =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/124ca04f9be2de579bba97a1fae9863320138ed7
+
+===== 22:37:05 上传: ./infer_dinov3_unet/checkpoints/TGVideo/dino_unet_train_TGVideo_epoch_30.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/208ed9f070351f93383aa67b90f24630693d5cdf
+
+===== 22:37:08 上传: ./infer_dinov3_unet/checkpoints/Nodule/dino_unet_train_dataset_4_epoch_50.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/37e1a2946db092cb17ef74db28f54f02f782d162
+
+===== 22:37:11 上传: ./infer_dinov3_unet_multitask/checkpoints/BM_2cls/dino_unet_gamtl_train_multitask_dataset_3_epoch_50.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/640c75afcc41c7225d254361b937eeb3d57cc346
+
+===== 22:37:14 上传: ./infer_dinov3_unet_multitask/checkpoints/TIRADS_5cls/dino_unet_train_TIRADS_Cine-Clip_epoch_50.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/a91d01cb5e44e96f9059c98fa712ac121bb08b02
+
+===== 22:37:18 上传: ./infer_medsam2/checkpoints/TGVideo/checkpoint_10.pt =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/98a009bcbdd8e2e390636b7015be7ecc25031ffe
+
+===== 22:37:21 上传: ./infer_medsam2/checkpoints/Nodule/checkpoint_15.pt =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/7c3e75393f6e849108e65185c6265261c79d34a9
+
+===== 22:37:24 上传: ./infer_medsegx/checkpoints/TGVideo/checkpoint_epoch_29.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/aa2871120a4a794f7e884fb213a714962ebbb90b
+
+===== 22:37:27 上传: ./infer_medsegx/checkpoints/Nodule/model_best.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/36280fb6532305d94a121b51c53024b7287d2317
+
+===== 22:37:30 上传: ./infer_medsegx/pretrained_models/SAM/sam_vit_b_01ec64.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/eb5ee765daaa9841f087dad932c7f8ef26a18c40
+
+===== 22:37:33 上传: ./infer_medsiglip/checkpoints/BM_2cls/best_model.pt =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/baa448fa97542f1e31e1e0dc36e53bc644a93115
+
+===== 22:37:36 上传: ./infer_medsiglip/checkpoints/TIRADS_5cls/best_model.pt =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/2cfdf31d3502edacaa6af9250276e43f7a2ac7e7
+
+===== 22:37:39 上传: ./infer_medsiglip/pretrained_models/medsiglip-448/model.safetensors =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/0a77c0d0024af4752941d5962167ddf0f5523e8e
+
+===== 22:37:42 上传: ./infer_transunet/checkpoints/TGVideo/epoch_49.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/7930df68c8605aa6fdbe26e1eb84cecd9ad35561
+
+===== 22:37:45 上传: ./infer_transunet/checkpoints/Nodule/epoch_49.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/5e3a9f536f78dd9f2a461f2a1a9ef6681d6846ff
+
+===== 22:37:48 上传: ./infer_ultrafedfm/checkpoints/TGVideo/epoch_bestDice.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/08b2c3ce29a7e926b2f7f59b6aafd2e17e643ebc
+
+===== 22:37:51 上传: ./infer_ultrafedfm/checkpoints/Nodule/epoch_bestDice.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/33ece6a9a6314f98ae326c8539e36b121d2e4821
+
+===== 22:37:54 上传: ./infer_ultrafedfm/checkpoints/BM_2cls/checkpoint-best_auroc.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/21d7d6cbc2fc7c93310aa690227c255496dd5c2c
+
+===== 22:37:56 上传: ./infer_ultrafedfm/checkpoints/BM_2cls/checkpoint-best_acc.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/8538a86112c13c13c1c472f66eeb72697e7bb537
+
+===== 22:37:59 上传: ./infer_ultrafedfm/checkpoints/TIRADS_5cls/checkpoint-best_auroc.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/b403436423c94965dd55c5b6a78d1247fc49cf85
+
+===== 22:38:02 上传: ./infer_ultrafedfm/checkpoints/TIRADS_5cls/checkpoint-best_acc.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/894da678e938f7377a6a9bbc6232ff134224fd9b
+
+===== 22:38:06 上传: ./my_ThyroidROI/outputs/best_dice_model.pth =====
+/root/miniconda3/envs/thyroid_infer/lib/python3.11/site-packages/huggingface_hub/constants.py:298: FutureWarning: The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.
+  warnings.warn(
+Skipped upload for 1 LFS file(s) (ignored by gitignore file).
+Skipped 1 file(s) in commit (ignored by gitignore file).
+[32m✓ Uploaded[0m
+  url: https://huggingface.co/instincts7Zz/my_Thyroid_infer/commit/66f798be5e3e6e40e51531b4665e61a8fbf5ecba
+
+===== 全部上传完成 =====
