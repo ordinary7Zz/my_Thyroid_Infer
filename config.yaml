@@ -38,7 +38,7 @@ weights:
   # 分割 — 结节
   nodule:
     dinov3_unet: ./infer_dinov3_unet/checkpoints/Nodule/dino_unet_train_dataset_4_epoch_50.pth
-    medsam2:     ./infer_medsam2/checkpoints/Nodule/checkpoint_5.pt
+    medsam2:     ./infer_medsam2/checkpoints/Nodule/checkpoint_15.pt
     medsegx:     ./infer_medsegx/checkpoints/Nodule/model_best.pth
     transunet:   ./infer_transunet/checkpoints/Nodule/epoch_49.pth
     ultrafedfm:  ./infer_ultrafedfm/checkpoints/Nodule/epoch_bestDice.pth
