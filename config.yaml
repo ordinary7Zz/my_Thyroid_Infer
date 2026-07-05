@@ -47,14 +47,14 @@ weights:
   binary:
     biomedclip:            ./infer_biomedclip/checkpoints/BM_2cls/best_model.pth
     medsiglip:             ./infer_medsiglip/checkpoints/BM_2cls/best_model.pt
-    ultrafedfm:            ./infer_ultrafedfm/checkpoints/BM_2cls/checkpoint-best_auroc.pth
+    ultrafedfm:            ./infer_ultrafedfm/checkpoints/BM_2cls/checkpoint-best_acc.pth
     dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/BM_2cls/dino_unet_gamtl_train_multitask_dataset_3_epoch_50.pth
 
   # 分类 — TIRADS 五分类
   tirads:
     biomedclip:            ./infer_biomedclip/checkpoints/TIRADS_5cls/best_model.pth
     medsiglip:             ./infer_medsiglip/checkpoints/TIRADS_5cls/best_model.pt
-    ultrafedfm:            ./infer_ultrafedfm/checkpoints/TIRADS_5cls/checkpoint-best_auroc.pth
+    ultrafedfm:            ./infer_ultrafedfm/checkpoints/TIRADS_5cls/checkpoint-best_acc.pth
     dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/TIRADS_5cls/dino_unet_train_TIRADS_Cine-Clip_epoch_50.pth
 
 # --- 预训练骨干模型目录 ---
@@ -66,6 +66,12 @@ pretrained:
 
 # --- 输出根目录 ---
 output_root: ./results
+
+# --- 预处理参数 (pipeline.py 使用) ---
+prepare:
+  input_dir:    ./datasets/甲状腺私有数据/新建文件夹
+  output_dir:   ./datasets/processed
+  roi_checkpoint: ./my_ThyroidROI/outputs/best_dice_model.pth
 
 # --- 通用参数 ---
 device: cuda

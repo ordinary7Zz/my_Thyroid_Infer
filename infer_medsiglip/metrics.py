@@ -129,7 +129,7 @@ def compute_all_metrics(labels, preds, probs, is_binary, n_bootstrap=2000):
 
 def format_metrics_report(metrics, is_binary, class_names, labels, preds,
                            n_bootstrap, label_field=""):
-    """将指标格式化为可读的报告字符串。
+    """将指标格式化为统一格式的报告字符串。
 
     Args:
         metrics: compute_all_metrics 的返回值
@@ -141,50 +141,18 @@ def format_metrics_report(metrics, is_binary, class_names, labels, preds,
         label_field: 标签字段名（用于报告标题）
     """
     lines = []
-    lines.append("=" * 70)
-    lines.append("Classification Performance Report")
-    lines.append("=" * 70)
-    lines.append(f"Task field:       {label_field if label_field else 'N/A'}")
-    task_type = "Binary" if is_binary else f"Multi-class ({len(class_names)} classes)"
-    lines.append(f"Task type:        {task_type}")
-    lines.append(f"Classes:          {class_names}")
-    lines.append(f"Samples:          {len(labels)}")
-    lines.append(f"Bootstrap iters:  {n_bootstrap}")
-    avg_method = "binary" if is_binary else "macro"
-    lines.append(f"Averaging:        {avg_method}")
-    lines.append("")
+    lines.append("=" * 60)
+    lines.append(f"评估样本数: {len(labels)}")
 
-    lines.append("--- Metrics (point estimate + 95% CI) ---")
     for name in METRIC_NAMES:
         m = metrics[name]
         if np.isnan(m["value"]):
-            lines.append(f"  {name:12s}: N/A")
+            lines.append(f"{name:<12s}: N/A")
         else:
             ci_str = ""
             if not (np.isnan(m["ci_lower"]) or np.isnan(m["ci_upper"])):
-                ci_str = f" (95% CI: {m['ci_lower']:.4f} - {m['ci_upper']:.4f})"
-            lines.append(f"  {name:12s}: {m['value']:.4f}{ci_str}")
-    lines.append("")
+                ci_str = f"  (95% CI: [{m['ci_lower']:.4f}, {m['ci_upper']:.4f}])"
+            lines.append(f"{name:<12s}: {m['value']:.4f}{ci_str}")
 
-    # 混淆矩阵
-    cm = confusion_matrix(labels, preds)
-    lines.append("--- Confusion Matrix ---")
-    header = f"  {'True/Pred':>12s}" + "".join(f"{name:>12s}" for name in class_names)
-    lines.append(header)
-    for i, name in enumerate(class_names):
-        row = f"  {name:>12s}" + "".join(f"{cm[i, j]:>12d}" for j in range(len(class_names)))
-        lines.append(row)
-    lines.append("")
-
-    # 详细分类报告
-    lines.append("--- Detailed Classification Report ---")
-    try:
-        report = classification_report(
-            labels, preds, target_names=class_names, digits=4, zero_division=0
-        )
-    except Exception:
-        report = classification_report(labels, preds, digits=4, zero_division=0)
-    lines.append(report)
-    lines.append("=" * 70)
-
+    lines.append("=" * 60)
     return "\n".join(lines)

@@ -217,40 +217,36 @@ def main():
     device = torch.device(
         args.device if args.device == "cpu" or torch.cuda.is_available() else "cpu"
     )
-    print(f"[INFO] Using device: {device}")
 
     # 加载模型
-    print(f"[INFO] Loading checkpoint: {args.ckpt}")
     net = load_model(args, device)
-    print("[INFO] Model loaded successfully.")
 
     # 收集图像
     files = collect_images(args.img_dir)
     if not files:
         print(f"[ERROR] No images found in: {args.img_dir}")
         sys.exit(1)
-    print(f"[INFO] Found {len(files)} images in: {args.img_dir}")
 
     # 准备输出目录
     if args.out_dir is not None:
         os.makedirs(args.out_dir, exist_ok=True)
-        print(f"[INFO] Predictions will be saved to: {args.out_dir}")
-    else:
-        print("[INFO] No --out_dir given, predictions will not be saved.")
 
     # 是否计算指标
     compute_metrics = args.gt_dir is not None
-    if compute_metrics:
-        print(f"[INFO] GT masks from: {args.gt_dir}, metrics will be computed.")
-    else:
-        print("[INFO] No --gt_dir given, metrics will not be computed.")
+
+    # 打印配置
+    print("=" * 60)
+    print(f"权重:     {args.ckpt}")
+    print(f"数据:     {args.img_dir}")
+    print(f"GT:       {args.gt_dir if args.gt_dir else '(无)'}")
+    print(f"设备:     {device}")
+    print("=" * 60)
 
     # 推理循环
     dice_list: List[float] = []
     hd95_list: List[float] = []
-    missing_gt: List[str] = []
 
-    for stem, img_path in tqdm(files, desc="Inferring"):
+    for stem, img_path in tqdm(files, desc="推理"):
         # 推理
         pred = infer_one(net, img_path, args.img_size, device)
 
@@ -264,7 +260,6 @@ def main():
         if compute_metrics:
             gt_path = find_gt_file(args.gt_dir, stem)
             if gt_path is None:
-                missing_gt.append(stem)
                 continue
             gt = Image.open(gt_path)
             gt_np = np.array(gt, dtype=np.int32)
@@ -274,16 +269,7 @@ def main():
             hd95_list.append(h95)
 
     # 汇总输出
-    print(f"\n[INFO] Inference complete. {len(files)} images processed.")
-
-    if args.out_dir is not None:
-        print(f"[INFO] Masks saved to: {args.out_dir}")
-
     if compute_metrics:
-        if missing_gt:
-            print(f"[WARN] {len(missing_gt)} images have no matching GT mask: "
-                  f"{missing_gt[:5]}{'...' if len(missing_gt) > 5 else ''}")
-
         n_eval = len(dice_list)
         if n_eval == 0:
             print("[WARN] No valid GT pairs found, no metrics computed.")
@@ -292,50 +278,19 @@ def main():
         dice_mean, dice_lo, dice_hi = mean_ci95(dice_list)
         hd95_mean, hd95_lo, hd95_hi = mean_ci95(hd95_list)
 
-        # 打印到终端
-        print(f"\n{'='*50}")
-        print(f"Evaluation Results ({n_eval} cases)")
-        print(f"{'='*50}")
-        print(f"  Dice:  mean={dice_mean:.6f}  95% CI=({dice_lo:.6f}, {dice_hi:.6f})")
-        print(f"  HD95:  mean={hd95_mean:.6f}  95% CI=({hd95_lo:.6f}, {hd95_hi:.6f})")
-        print(f"{'='*50}")
+        print("=" * 60)
+        print(f"评估样本数: {n_eval}")
+        print(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_lo:.4f}, {dice_hi:.4f}])")
+        print(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_lo:.4f}, {hd95_hi:.4f}])")
+        print("=" * 60)
 
-        # 写纯文本 log
+        # 写 log 文件（仅指标）
         log_path = args.log
         os.makedirs(os.path.dirname(os.path.abspath(log_path)), exist_ok=True)
         with open(log_path, "w", encoding="utf-8") as f:
-            f.write("=" * 60 + "\n")
-            f.write("TransUNet Inference Evaluation Log\n")
-            f.write("=" * 60 + "\n")
-            f.write(f"Timestamp:    {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"Checkpoint:   {args.ckpt}\n")
-            f.write(f"Image dir:    {args.img_dir}\n")
-            f.write(f"GT dir:       {args.gt_dir}\n")
-            f.write(f"Output dir:   {args.out_dir if args.out_dir else 'Not saved'}\n")
-            f.write(f"Model config: vit_name={args.vit_name}, "
-                    f"img_size={args.img_size}, "
-                    f"num_classes={args.num_classes}, "
-                    f"n_skip={args.n_skip}\n")
-            f.write(f"Device:       {device}\n")
-            f.write(f"Num cases:    {n_eval}\n")
-            f.write("-" * 60 + "\n")
-            f.write("Per-case results:\n")
-            for i, (d, h95) in enumerate(zip(dice_list, hd95_list), 1):
-                f.write(f"  [{i:04d}] Dice={d:.6f}  HD95={h95:.4f}\n")
-            f.write("-" * 60 + "\n")
-            f.write("Summary:\n")
-            f.write(f"  Dice:  mean={dice_mean:.6f}  "
-                    f"95% CI=({dice_lo:.6f}, {dice_hi:.6f})\n")
-            f.write(f"  HD95:  mean={hd95_mean:.6f}  "
-                    f"95% CI=({hd95_lo:.6f}, {hd95_hi:.6f})\n")
-            if missing_gt:
-                f.write("-" * 60 + "\n")
-                f.write(f"Missing GT ({len(missing_gt)} cases):\n")
-                for s in missing_gt:
-                    f.write(f"  {s}\n")
-            f.write("=" * 60 + "\n")
-
-        print(f"[INFO] Log written to: {log_path}")
+            f.write(f"评估样本数: {n_eval}\n")
+            f.write(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_lo:.4f}, {dice_hi:.4f}])\n")
+            f.write(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_lo:.4f}, {hd95_hi:.4f}])\n")
 
 
 if __name__ == "__main__":

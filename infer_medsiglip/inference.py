@@ -45,6 +45,7 @@ import cv2
 import torch
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from model import MedSigLIPClassifier
 from transforms import get_val_transforms
@@ -216,10 +217,8 @@ def main():
     device = torch.device(
         args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     )
-    print(f"[Device] {device}")
 
     # ---- 加载检查点 ----
-    print(f"[Checkpoint] Loading: {args.checkpoint}")
     checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=False)
     config = checkpoint.get("config", {})
     class_names = checkpoint.get("class_names", None)
@@ -236,14 +235,11 @@ def main():
             class_names = [str(i) for i in range(num_classes)]
 
     is_binary = num_classes <= 2
-    print(f"[Config] num_classes={num_classes}, is_binary={is_binary}")
-    print(f"[Config] class_names={class_names}")
 
     # ---- 构建模型 ----
     model_name = args.model_path
     local_files_only = model_cfg.get("local_files_only", True)
 
-    print(f"[Model] Pretrained path: {model_name}")
     model = MedSigLIPClassifier(
         model_name=model_name,
         num_classes=num_classes,
@@ -253,7 +249,6 @@ def main():
     model.load_state_dict(checkpoint["model_state_dict"])
     model = model.to(device)
     model.eval()
-    print(f"[Model] Loaded successfully")
 
     # ---- 预处理 ----
     data_cfg = config.get("data", {})
@@ -269,12 +264,9 @@ def main():
             print("[ERROR] --label_field is required when --label_file is provided")
             sys.exit(1)
         label_map = load_labels(args.label_file, args.label_field)
-        print(f"[Labels] Loaded {len(label_map)} entries "
-              f"from {args.label_file} (field: {args.label_field})")
 
     # ---- 收集图像 ----
     image_paths = collect_images(args.input)
-    print(f"[Input] Found {len(image_paths)} image(s)")
 
     # ---- 批量推理 ----
     all_rows = []
@@ -284,7 +276,17 @@ def main():
     batch_tensors = []
     batch_paths = []
 
-    for img_path in image_paths:
+    # 打印配置
+    print("=" * 60)
+    print(f"权重:     {args.checkpoint}")
+    print(f"数据:     {args.input}")
+    print(f"类别数:   {num_classes}")
+    if args.label_file:
+        print(f"标签字段: {args.label_field}")
+    print(f"设备:     {device}")
+    print("=" * 60)
+
+    for img_path in tqdm(image_paths, desc="推理"):
         # 读取图像（超声通常为灰度图）
         image = cv2.imread(str(img_path), cv2.IMREAD_GRAYSCALE)
         if image is None:
@@ -320,12 +322,6 @@ def main():
             all_probs.append(r["probs"])
             all_true_idx.append(r["true_idx"])
 
-    print(f"[Inference] Processed {len(all_rows)} images")
-
-    if len(all_rows) == 0:
-        print("[ERROR] No images were successfully processed.")
-        sys.exit(1)
-
     # ---- 保存 CSV ----
     df = pd.DataFrame(all_rows)
     cols = ["filename", "predicted_class", "confidence"]
@@ -337,7 +333,6 @@ def main():
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
     df.to_csv(args.output, index=False)
-    print(f"[Output] CSV saved to: {args.output} ({len(df)} rows)")
 
     # ---- 计算性能指标（如果有标签）----
     if label_map is not None:
@@ -387,10 +382,6 @@ def main():
                 cols.append("true_label")
             df = df[[c for c in cols if c in df.columns]]
             df.to_csv(args.output, index=False)
-            print(f"[Labels] Applied offset {offset}: "
-                  f"original [{min_label}~{max_label}] -> "
-                  f"shifted [{min_label - offset}~{max_label - offset}]")
-            print(f"[Output] CSV re-saved with adjusted true_label: {args.output}")
 
         # 再次检查范围
         max_label_new = int(labels.max())
@@ -400,9 +391,6 @@ def main():
                   f"After offset={offset}: min={min_label_new}, max={max_label_new}. "
                   f"Use --label_offset to adjust.")
             return
-
-        print(f"\n[Metrics] Computing on {n_labeled} labeled samples "
-              f"(bootstrap: {args.n_bootstrap} iterations)...")
 
         metrics = compute_all_metrics(
             labels, preds, probs, is_binary,
@@ -414,7 +402,7 @@ def main():
             n_bootstrap=args.n_bootstrap,
             label_field=args.label_field or "",
         )
-        print("\n" + report)
+        print(report)
 
         # 保存到 .log 文件
         metrics_path = args.metrics_output
@@ -427,7 +415,6 @@ def main():
             os.makedirs(metrics_dir, exist_ok=True)
         with open(metrics_path, "w") as f:
             f.write(report + "\n")
-        print(f"[Output] Metrics saved to: {metrics_path}")
 
 
 if __name__ == "__main__":

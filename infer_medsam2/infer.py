@@ -40,6 +40,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL import Image
+from tqdm import tqdm
 
 # ---------------------------------------------------------------------------
 # 确保脚本所在目录在 Python path 中（使 sam2 包可导入）
@@ -251,17 +252,17 @@ def main():
 
     # --- 设置日志 ---
     logger, log_file = setup_logger(args.log_dir)
-    logger.info("=" * 60)
-    logger.info("MedSAM2 2D 推理")
-    logger.info("=" * 60)
+
+    # --- 设备 ---
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     # --- 记录配置 ---
-    logger.info(f"图像目录:  {args.image_dir}")
-    logger.info(f"权重路径:  {args.checkpoint}")
-    logger.info(f"GT 目录:   {args.gt_dir if args.gt_dir else '(未提供，不计算指标)'}")
-    logger.info(f"输出目录:  {args.output_dir if args.output_dir else '(未提供，不保存 mask)'}")
-    logger.info(f"配置文件:  {args.config}")
-    logger.info(f"日志文件:  {log_file}")
+    logger.info("=" * 60)
+    logger.info(f"权重:     {args.checkpoint}")
+    logger.info(f"数据:     {args.image_dir}")
+    logger.info(f"GT:       {args.gt_dir if args.gt_dir else '(无)'}")
+    logger.info(f"设备:     {device}")
+    logger.info("=" * 60)
 
     # --- 检查输入 ---
     if not os.path.isdir(args.image_dir):
@@ -275,17 +276,9 @@ def main():
         return
     if args.output_dir:
         os.makedirs(args.output_dir, exist_ok=True)
-        logger.info(f"创建输出目录: {args.output_dir}")
-
-    # --- 设备 ---
-    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
-    logger.info(f"实际使用设备: {device}")
 
     # --- 加载模型 ---
     cfg_path = resolve_config_path(args.config)
-    logger.info(f"加载模型...")
-    logger.info(f"  checkpoint: {args.checkpoint}")
-    logger.info(f"  config:     {cfg_path}")
 
     try:
         predictor = build_sam2_video_predictor_npz(
@@ -300,15 +293,11 @@ def main():
         traceback.print_exc()
         return
 
-    logger.info("模型加载成功")
-    logger.info(f"模型 image_size: {predictor.image_size}")
-
     # --- 收集图像 ---
     image_paths = collect_images(args.image_dir)
     if not image_paths:
         logger.error(f"在 {args.image_dir} 中没有找到图像文件")
         return
-    logger.info(f"找到 {len(image_paths)} 张图像")
 
     # --- 推理 + 评估 ---
     dice_values = []
@@ -324,7 +313,7 @@ def main():
 
     start_time = time.time()
     with torch.inference_mode(), autocast_ctx:
-        for i, img_path in enumerate(image_paths):
+        for i, img_path in tqdm(enumerate(image_paths), total=len(image_paths), desc="推理"):
             stem = os.path.splitext(os.path.basename(img_path))[0]
 
             # 加载图像
@@ -359,8 +348,6 @@ def main():
                 gt_path = find_gt_file(args.gt_dir, stem)
                 if gt_path is None:
                     n_no_gt += 1
-                    if (i + 1) % 10 == 0 or i == 0:
-                        logger.warning(f"  [{i+1}/{len(image_paths)}] {stem}: GT mask 未找到")
                     continue
 
                 gt_bin = load_gt_mask(gt_path, H, W)
@@ -369,49 +356,20 @@ def main():
                 dice_values.append(dice)
                 hd95_values.append(hd95)
 
-            # 进度日志
-            if (i + 1) % 10 == 0 or i == 0 or i == len(image_paths) - 1:
-                msg = f"  [{i+1}/{len(image_paths)}] {stem} ({W}x{H})"
-                if args.gt_dir and len(dice_values) > 0 and \
-                   len(dice_values) == (i + 1 - n_no_gt):
-                    msg += f"  dice={dice_values[-1]:.4f} hd95={hd95_values[-1]:.2f}"
-                logger.info(msg)
-
     elapsed = time.time() - start_time
 
     # --- 汇总 ---
-    logger.info("-" * 60)
-    logger.info(f"推理完成: {len(image_paths)} 张图像, 耗时 {elapsed:.2f}s "
-                f"({len(image_paths)/elapsed:.2f} img/s)")
-
-    if args.output_dir:
-        logger.info(f"保存 mask: {n_saved} 张 -> {args.output_dir}")
-
     if args.gt_dir:
-        if n_no_gt > 0:
-            logger.warning(f"GT mask 未找到: {n_no_gt} 张 (跳过指标计算)")
         if len(dice_values) > 0:
-            # 先输出各样本明细
-            logger.info("各样本明细:")
-            logger.info(f"  {'No.':>4}  {'Dice':>8}  {'HD95':>8}")
-            for idx, (d, h) in enumerate(zip(dice_values, hd95_values)):
-                logger.info(f"  {idx+1:>4}  {d:>8.4f}  {h:>8.2f}")
-
-            # 最后输出平均指标和置信区间
-            logger.info("-" * 60)
-            logger.info(f"评估样本数: {len(dice_values)}")
             dice_mean, dice_lo, dice_hi = mean_ci95(dice_values)
             hd95_mean, hd95_lo, hd95_hi = mean_ci95(hd95_values)
-            logger.info(f"Dice:  {dice_mean:.8f}  (95% CI: [{dice_lo:.4f}, {dice_hi:.4f}])")
+            logger.info("=" * 60)
+            logger.info(f"评估样本数: {len(dice_values)}")
+            logger.info(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_lo:.4f}, {dice_hi:.4f}])")
             logger.info(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_lo:.4f}, {hd95_hi:.4f}])")
+            logger.info("=" * 60)
         else:
             logger.warning("未计算到任何有效指标（可能 GT mask 均未找到）")
-
-    if not args.output_dir and not args.gt_dir:
-        logger.info("未指定输出目录和 GT 目录，本次运行仅执行推理，无输出文件。")
-
-    logger.info(f"日志已保存到: {log_file}")
-    logger.info("=" * 60)
 
 
 if __name__ == "__main__":

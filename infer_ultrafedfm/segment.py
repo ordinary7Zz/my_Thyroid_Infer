@@ -29,6 +29,7 @@ import numpy as np
 import torch.nn.functional as F
 import albumentations as A
 
+from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 from albumentations.pytorch import ToTensorV2
 from scipy import ndimage
@@ -185,7 +186,7 @@ def run_inference(data_loader, model, device, threshold, output_dir, gt_dir):
     dice_list = []
     hd95_list = []
 
-    for images, names, orig_hs, orig_ws in data_loader:
+    for images, names, orig_hs, orig_ws in tqdm(data_loader, desc="推理"):
         images = images.to(device, non_blocking=True)
         outputs = model(images)  # (B, 1, H, W), activation='sigmoid' already applied
 
@@ -264,7 +265,6 @@ def main():
 
     # --- dataset ---
     dataset = FlatImageDataset(args.data_path, img_size=args.img_size)
-    print('Found {} images in {}'.format(len(dataset), args.data_path))
 
     data_loader = DataLoader(
         dataset,
@@ -285,8 +285,15 @@ def main():
     )
     checkpoint = torch.load(args.resume, map_location='cpu')
     model.load_state_dict(checkpoint)
-    print('Loaded checkpoint from {}'.format(args.resume))
     model.to(device)
+
+    # --- 打印配置 ---
+    print("=" * 60)
+    print(f"权重:     {args.resume}")
+    print(f"数据:     {args.data_path}")
+    print(f"GT:       {args.gt_dir if args.gt_dir else '(无)'}")
+    print(f"设备:     {device}")
+    print("=" * 60)
 
     # --- inference ---
     dice_list, hd95_list = run_inference(
@@ -294,13 +301,10 @@ def main():
         args.output_dir, args.gt_dir
     )
 
-    if args.output_dir is not None:
-        print('Saved {} masks to {}'.format(len(dataset), args.output_dir))
-
     # --- metrics ---
     if args.gt_dir is not None and len(dice_list) > 0:
-        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
         if args.output_log is None:
+            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
             args.output_log = 'seg_metrics_{}.log'.format(timestamp)
 
         dice_mean = float(np.mean(dice_list))
@@ -308,48 +312,20 @@ def main():
         dice_ci = bootstrap_ci(dice_list, n_bootstrap=args.n_bootstrap)
         hd95_ci = bootstrap_ci(hd95_list, n_bootstrap=args.n_bootstrap)
 
+        print("=" * 60)
+        print(f"评估样本数: {len(dice_list)}")
+        print(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_ci[0]:.4f}, {dice_ci[1]:.4f}])")
+        print(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_ci[0]:.4f}, {hd95_ci[1]:.4f}])")
+        print("=" * 60)
+
         os.makedirs(os.path.dirname(os.path.abspath(args.output_log)), exist_ok=True)
         with open(args.output_log, 'w', encoding='utf-8') as f:
-            f.write('=' * 60 + '\n')
-            f.write('UltraFedFM Segmentation Metrics\n')
-            f.write('=' * 60 + '\n')
-            f.write('Checkpoint: {}\n'.format(args.resume))
-            f.write('Data path: {}\n'.format(args.data_path))
-            f.write('GT dir: {}\n'.format(args.gt_dir))
-            f.write('Threshold: {}\n'.format(args.threshold))
-            f.write('Num samples (matched): {}\n'.format(len(dice_list)))
-            f.write('Bootstrap iterations: {}\n'.format(args.n_bootstrap))
-            f.write('-' * 60 + '\n')
-            f.write('{:<15s} {:>10s}   {:>12s}\n'.format('Metric', 'Value', 'CI95'))
-            f.write('-' * 60 + '\n')
-            f.write('{:<15s} {:>10.4f}   [{:.4f}, {:.4f}]\n'.format(
-                'Dice', dice_mean, dice_ci[0], dice_ci[1]
-            ))
-            f.write('{:<15s} {:>10.4f}   [{:.4f}, {:.4f}]\n'.format(
-                'HD95', hd95_mean, hd95_ci[0], hd95_ci[1]
-            ))
-            f.write('-' * 60 + '\n')
-            f.write('Per-sample Dice: {}\n'.format(
-                ', '.join('{:.4f}'.format(v) for v in dice_list)
-            ))
-            f.write('Per-sample HD95: {}\n'.format(
-                ', '.join('{:.4f}'.format(v) for v in hd95_list)
-            ))
-            f.write('-' * 60 + '\n')
-            f.write('Timestamp: {}\n'.format(
-                datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            ))
-
-        print('Saved metrics to {}'.format(args.output_log))
-        print('\n--- Segmentation Metrics ---')
-        print('Dice : {:.4f}  CI95=[{:.4f}, {:.4f}]'.format(
-            dice_mean, dice_ci[0], dice_ci[1]))
-        print('HD95 : {:.4f}  CI95=[{:.4f}, {:.4f}]'.format(
-            hd95_mean, hd95_ci[0], hd95_ci[1]))
+            f.write(f"评估样本数: {len(dice_list)}\n")
+            f.write(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_ci[0]:.4f}, {dice_ci[1]:.4f}])\n")
+            f.write(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_ci[0]:.4f}, {hd95_ci[1]:.4f}])\n")
     elif args.gt_dir is not None and len(dice_list) == 0:
         print('No GT masks matched the image filenames — skipping metrics')
-    else:
-        print('No GT directory provided — skipping metrics')
+
 
 
 if __name__ == '__main__':

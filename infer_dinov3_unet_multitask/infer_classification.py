@@ -53,7 +53,6 @@ from metrics import (
     METRIC_ORDER,
     binary_bootstrap_metrics,
     multiclass_bootstrap_metrics,
-    format_metrics_log,
 )
 
 
@@ -273,7 +272,7 @@ def run_inference(model, loader, device, num_classes):
     results = []
 
     with torch.no_grad():
-        for images, filenames, paths in tqdm(loader, desc="Inference"):
+        for images, filenames, paths in tqdm(loader, desc="推理"):
             images = images.to(device)
             _, benign_malignant, tirads = model(images)
 
@@ -327,12 +326,12 @@ def save_csv(results, output_path, has_labels):
             row = {k: r[k] for k in fieldnames}
             writer.writerow(row)
 
-    print(f"CSV 已保存: {output_path}（{len(results)} 条记录）")
+
 
 
 def compute_and_save_metrics(results, num_classes, label_field, log_path,
                              n_boot, ci, seed):
-    """计算指标并保存到 .log 文件。"""
+    """计算指标并保存到 .log 文件（统一格式）。"""
     y_true = np.array([r['true_label'] for r in results], dtype=np.int32)
     valid = y_true != -1
 
@@ -340,9 +339,6 @@ def compute_and_save_metrics(results, num_classes, label_field, log_path,
         y_prob = np.array([r['_prob_1'] for r in results], dtype=np.float64)
         y_true_valid = y_true[valid]
         y_prob_valid = y_prob[valid]
-
-        if np.unique(y_true_valid).size < 2:
-            print("[警告] 真实标签只有一个类别，无法计算 AUROC/AUPRC。")
 
         metrics = binary_bootstrap_metrics(
             y_prob_valid, y_true_valid,
@@ -359,41 +355,32 @@ def compute_and_save_metrics(results, num_classes, label_field, log_path,
             n_boot=n_boot, ci=ci, seed=seed,
         )
 
-    # 写日志
+    # 构建统一格式输出
+    n_valid = int(valid.sum())
+    out_lines = []
+    out_lines.append("=" * 60)
+    out_lines.append(f"评估样本数: {n_valid}")
+
+    metric_names = ['AUROC', 'AUPRC', 'Accuracy', 'Precision', 'F1', 'Recall']
+    for name in metric_names:
+        for key in metrics:
+            if key.upper() == name.upper():
+                mean_v, (low_v, high_v) = metrics[key]
+                out_lines.append(
+                    f"{name:<12s}: {mean_v:.4f}  (95% CI: [{low_v:.4f}, {high_v:.4f}])"
+                )
+                break
+
+    out_lines.append("=" * 60)
+    report = "\n".join(out_lines)
+
+    # 打印到终端
+    print(report)
+
+    # 写 log 文件
     os.makedirs(os.path.dirname(os.path.abspath(log_path)), exist_ok=True)
-    lines = []
-    lines.append("=" * 70)
-    lines.append("分类推理指标报告")
-    lines.append("=" * 70)
-    lines.append(f"生成时间:     {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append(f"任务字段:     {label_field}")
-    lines.append(f"分类数:       {num_classes}")
-    if num_classes > 2:
-        lines.append(f"平均方式:     macro-average（宏平均）")
-    lines.append(f"样本总数:     {len(results)}")
-    lines.append(f"有效标签数:   {int(valid.sum())}")
-    if num_classes == 2:
-        n_pos = int((y_true_valid == 1).sum())
-        n_neg = int((y_true_valid == 0).sum())
-        lines.append(f"正样本数:     {n_pos}")
-        lines.append(f"负样本数:     {n_neg}")
-    else:
-        for c in range(num_classes):
-            n_c = int((y_true_valid == c).sum())
-            lines.append(f"  类别 {c}: {n_c} 个样本")
-    lines.append(f"Bootstrap:    n_boot={n_boot}, ci={ci}, seed={seed}")
-    lines.append("")
-    lines.append("指标结果 (mean + CI95):")
-    lines.append(format_metrics_log(metrics))
-    lines.append("")
-    lines.append("=" * 70)
-
-    log_text = "\n".join(lines)
     with open(log_path, 'w', encoding='utf-8') as f:
-        f.write(log_text)
-
-    print(f"\n指标日志已保存: {log_path}")
-    print(log_text)
+        f.write(report + "\n")
 
 
 # ---------------------------------------------------------------------------
@@ -411,17 +398,14 @@ def main(args):
     device = torch.device(
         f"cuda:{args.cuda_device}" if torch.cuda.is_available() else "cpu"
     )
-    print(f"Using device: {device}")
 
     # ---------- 加载模型 ----------
-    print(f"Loading model from: {args.checkpoint}")
     model = load_model(
         args.checkpoint, args.dino_pretrained, args.use_dilation, device
     )
 
     # ---------- 构建数据加载器 ----------
     dataset = InferenceDataset(args.image_dir, img_size=args.img_size)
-    print(f"Found {len(dataset)} images in {args.image_dir}")
     loader = DataLoader(
         dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.num_workers,
@@ -430,13 +414,21 @@ def main(args):
     # ---------- 加载标签（如果提供） ----------
     label_mapping = None
     if args.label_file:
-        print(f"Loading labels from: {args.label_file}")
-        print(f"Label field: {args.label_field}")
         image_mapping = scan_image_dir(args.image_dir)
         label_mapping = load_labels(
             args.label_file, args.label_field, image_mapping,
             args.num_classes, args.label_offset,
         )
+
+    # ---------- 打印配置 ----------
+    print("=" * 60)
+    print(f"权重:     {args.checkpoint}")
+    print(f"数据:     {args.image_dir}")
+    print(f"类别数:   {args.num_classes}")
+    if args.label_file:
+        print(f"标签字段: {args.label_field}")
+    print(f"设备:     {device}")
+    print("=" * 60)
 
     # ---------- 推理 ----------
     results = run_inference(model, loader, device, args.num_classes)
@@ -447,16 +439,9 @@ def main(args):
             fpath = r['_path']
             r['true_label'] = label_mapping.get(fpath, -1)
 
-        n_matched = sum(1 for r in results if r['true_label'] != -1)
-        print(f"标签匹配: {n_matched}/{len(results)} 个样本成功匹配到标签")
-
     # ---------- 保存 CSV ----------
     has_labels = label_mapping is not None
     save_csv(results, args.output, has_labels)
-
-    # ---------- 打印类别分布 ----------
-    counter = Counter(r['predicted_class'] for r in results)
-    print(f"Predicted class distribution: {dict(sorted(counter.items()))}")
 
     # ---------- 计算并保存指标 ----------
     if label_mapping is not None:
@@ -475,8 +460,6 @@ def main(args):
         for key in list(r.keys()):
             if key.startswith('_'):
                 del r[key]
-
-    print(f"\nDone. {len(results)} images processed.")
 
 
 # ---------------------------------------------------------------------------

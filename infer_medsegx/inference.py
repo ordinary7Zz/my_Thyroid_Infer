@@ -273,11 +273,8 @@ def main():
         raise RuntimeError(f"No image files found in {args.input_dir} "
                            f"(supported: {IMG_EXTENSIONS})")
 
-    print(f"Found {len(img_files)} images")
-
     # ── Parse task ──
     modal, organ = parse_task(args.task_name)
-    print(f"Task: {args.task_name}, modal={modal}, organ={organ}")
 
     # ── Load model ──
     device = torch.device(args.device)
@@ -296,35 +293,35 @@ def main():
 
     ckpt = torch.load(args.model_weight, map_location=device)
     model.load_parameters(ckpt["model"])
-    print(f"Loaded model weight: {args.model_weight}")
 
     img_size = model.sam.image_encoder.img_size
 
     # ── Prepare output dir if requested ──
     if args.output_dir:
         os.makedirs(args.output_dir, exist_ok=True)
-        print(f"Predicted masks will be saved to: {args.output_dir}")
 
     compute_metrics = args.gt_dir is not None
-    if compute_metrics:
-        print(f"GT directory provided: {args.gt_dir}")
-        print("Will compute DSC + HD95 + CI95")
 
     use_gt_box = (args.box_mode == "gt")
     box_rng = None
     if use_gt_box:
         if args.gt_dir is None:
             raise ValueError("--box_mode gt requires --gt_dir to be provided")
-        print(f"Box mode: GT-derived box (perturb={args.box_perturb}, seed={args.box_seed})")
         box_rng = np.random.default_rng(args.box_seed)
-    else:
-        print("Box mode: full image box")
+
+    # ── 打印配置 ──
+    print("=" * 60)
+    print(f"权重:     {args.model_weight}")
+    print(f"数据:     {args.input_dir}")
+    print(f"GT:       {args.gt_dir if args.gt_dir else '(无)'}")
+    print(f"设备:     {device}")
+    print("=" * 60)
 
     # ── Inference loop ──
-    dsc_list, hd95_list, results = [], [], []
+    dsc_list, hd95_list = [], []
     skipped = 0
 
-    for fname in tqdm(img_files, desc="Inference"):
+    for fname in tqdm(img_files, desc="推理"):
         img_path = join(args.input_dir, fname)
         image_np = load_image(img_path)
         h, w = image_np.shape[:2]
@@ -359,102 +356,44 @@ def main():
             hd = hd95(pred_mask, gt_mask)
             dsc_list.append(dsc)
             hd95_list.append(hd)
-            results.append((fname, dsc, hd))
 
     # ── Summary ──
-    log_lines = []
-    log_lines.append("=" * 60)
-    log_lines.append(f"MedSegX Inference Log")
-    log_lines.append(f"Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-    log_lines.append("=" * 60)
-    log_lines.append(f"Input dir:    {args.input_dir}")
-    log_lines.append(f"GT dir:       {args.gt_dir or '(none)'}")
-    log_lines.append(f"Output dir:   {args.output_dir or '(none)'}")
-    log_lines.append(f"Task name:    {args.task_name}")
-    log_lines.append(f"Model weight: {args.model_weight}")
-    log_lines.append(f"Model type:   {args.model_type}")
-    log_lines.append(f"Method:       {args.method}")
-    log_lines.append(f"Device:       {args.device}")
-    log_lines.append(f"Box mode:     {args.box_mode}"
-                     + (f" (perturb={args.box_perturb}, seed={args.box_seed})"
-                        if use_gt_box else ""))
-    log_lines.append(f"Total images: {len(img_files)}")
-
-    evaluated = 0
+    evaluated = len(dsc_list)
     mean_dsc = mean_hd = float('nan')
     dsc_lo = dsc_hi = float('nan')
     hd_lo = hd_hi = float('nan')
 
-    if compute_metrics:
-        evaluated = len(dsc_list)
-        log_lines.append(f"Evaluated:    {evaluated}")
-        log_lines.append(f"Skipped (no GT): {skipped}")
-
-        if evaluated > 0:
-            dsc_arr = np.array(dsc_list, dtype=float)
-            hd95_arr = np.array(hd95_list, dtype=float)
-
-            # Compute bootstrap CI (with fallback to simple mean)
-            try:
-                mean_dsc, dsc_lo, dsc_hi = bootstrap_ci(
-                    dsc_arr, n_boot=args.n_boot, ci=args.ci)
-                mean_hd, hd_lo, hd_hi = bootstrap_ci(
-                    hd95_arr, n_boot=args.n_boot, ci=args.ci)
-            except Exception as e:
-                print(f"[Warning] bootstrap_ci failed: {e}")
-                mean_dsc = float(np.nanmean(dsc_arr))
-                mean_hd = float(np.nanmean(hd95_arr))
-                dsc_lo = dsc_hi = mean_dsc
-                hd_lo = hd_hi = mean_hd
-
-            # Per-sample results first
-            log_lines.append("")
-            log_lines.append("Per-sample results:")
-            log_lines.append(f"  {'File':<40s} {'DSC':>10s} {'HD95':>10s}")
-            log_lines.append(f"  {'----':<40s} {'---':>10s} {'----':>10s}")
-            for fname, dsc, hd in results:
-                log_lines.append(f"  {fname:<40s} {dsc:>10.6f} {hd:>10.6f}")
-
-            # Metrics summary at the end (most visible)
-            log_lines.append("")
-            log_lines.append("=" * 60)
-            log_lines.append("Metrics Summary (Mean ± std with CI)")
-            log_lines.append("=" * 60)
-            log_lines.append(f"  DSC  : {mean_dsc:.6f}  "
-                             f"[{args.ci:.0f}% CI: {dsc_lo:.6f} – {dsc_hi:.6f}]")
-            log_lines.append(f"  HD95 : {mean_hd:.6f}  "
-                             f"[{args.ci:.0f}% CI: {hd_lo:.6f} – {hd_hi:.6f}]")
-            log_lines.append(f"  DSC  std: {dsc_arr.std():.6f}")
-            log_lines.append(f"  HD95 std: {np.nanstd(hd95_arr):.6f}")
-            log_lines.append(f"  N samples: {evaluated}")
-            log_lines.append("=" * 60)
-        else:
-            log_lines.append("No valid GT matches found — metrics not computed.")
-            log_lines.append("=" * 60)
-    else:
-        log_lines.append("GT directory not provided — metrics not computed.")
-        log_lines.append("=" * 60)
-
-    # Write log
-    os.makedirs(os.path.dirname(os.path.abspath(args.log_file)), exist_ok=True)
-    with open(args.log_file, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(log_lines) + '\n')
-
-    # Print full log
-    for line in log_lines:
-        print(line)
-
-    # Print prominent final summary (impossible to miss)
     if compute_metrics and evaluated > 0:
-        print()
-        print("#" * 60)
-        print("#  FINAL RESULTS")
-        print("#" * 60)
-        print(f"#  DSC  : {mean_dsc:.6f}  [{args.ci:.0f}% CI: {dsc_lo:.6f} - {dsc_hi:.6f}]")
-        print(f"#  HD95 : {mean_hd:.6f}  [{args.ci:.0f}% CI: {hd_lo:.6f} - {hd_hi:.6f}]")
-        print("#" * 60)
+        dsc_arr = np.array(dsc_list, dtype=float)
+        hd95_arr = np.array(hd95_list, dtype=float)
 
-    print(f"\nLog saved to: {args.log_file}")
+        # Compute bootstrap CI (with fallback to simple mean)
+        try:
+            mean_dsc, dsc_lo, dsc_hi = bootstrap_ci(
+                dsc_arr, n_boot=args.n_boot, ci=args.ci)
+            mean_hd, hd_lo, hd_hi = bootstrap_ci(
+                hd95_arr, n_boot=args.n_boot, ci=args.ci)
+        except Exception as e:
+            print(f"[Warning] bootstrap_ci failed: {e}")
+            mean_dsc = float(np.nanmean(dsc_arr))
+            mean_hd = float(np.nanmean(hd95_arr))
+            dsc_lo = dsc_hi = mean_dsc
+            hd_lo = hd_hi = mean_hd
+
+    # ── 统一输出 ──
+    if compute_metrics and evaluated > 0:
+        print("=" * 60)
+        print(f"评估样本数: {evaluated}")
+        print(f"Dice:  {mean_dsc:.4f}  (95% CI: [{dsc_lo:.4f}, {dsc_hi:.4f}])")
+        print(f"HD95:  {mean_hd:.4f}  (95% CI: [{hd_lo:.4f}, {hd_hi:.4f}])")
+        print("=" * 60)
+
+        # 写 log 文件（仅指标）
+        os.makedirs(os.path.dirname(os.path.abspath(args.log_file)), exist_ok=True)
+        with open(args.log_file, 'w', encoding='utf-8') as f:
+            f.write(f"评估样本数: {evaluated}\n")
+            f.write(f"Dice:  {mean_dsc:.4f}  (95% CI: [{dsc_lo:.4f}, {dsc_hi:.4f}])\n")
+            f.write(f"HD95:  {mean_hd:.4f}  (95% CI: [{hd_lo:.4f}, {hd_hi:.4f}])\n")
 
 
 if __name__ == "__main__":

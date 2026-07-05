@@ -300,24 +300,11 @@ def main():
 
     # 打印配置
     print("=" * 60)
-    print("DINOv3-UNet 独立推理")
+    print(f"权重:     {args.checkpoint}")
+    print(f"数据:     {args.input_dir}")
+    print(f"GT:       {args.gt_dir if args.gt_dir else '(无)'}")
+    print(f"设备:     {device}")
     print("=" * 60)
-    print(f"时间:       {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Device:     {device}")
-    print(f"Checkpoint: {args.checkpoint}")
-    print(f"Input dir:  {args.input_dir}")
-    print(f"GT dir:     {args.gt_dir if args.gt_dir else '(无，跳过指标计算)'}")
-    print(f"Output dir: {args.output_dir if args.output_dir else '(无，不输出掩码)'}")
-    print(f"Log dir:    {args.log_dir if compute_metrics else '(无 GT，不生成 log)'}")
-    print(f"Image size: {args.img_size}")
-    print(f"Batch size: {args.batch_size}")
-    print(f"DINO pretrained: {args.dino_pretrained}")
-    print(f"Use dilation:    {args.use_dilation}")
-    print(f"Threshold:       {args.threshold}")
-    print(f"Save orig size:  {args.save_orig_size}")
-    print(f"Bootstrap iters: {args.n_boot}")
-    print(f"CI level:        {args.ci}")
-    print()
 
     # 数据集
     dataset = InferenceDataset(args.input_dir, args.gt_dir, args.img_size)
@@ -325,16 +312,13 @@ def main():
         print("错误: 输入目录中未找到图像文件。")
         _restore_stdout(original_stdout)
         return
-    print(f"找到 {len(dataset)} 张图像。")
 
     # 检查 GT 匹配情况
     if compute_metrics:
         matched = sum(1 for p in dataset.image_paths if p.stem in dataset.gt_map)
-        print(f"GT 匹配: {matched}/{len(dataset)} 张图像有对应 GT")
         if matched == 0:
             print("警告: 没有图像匹配到 GT，将跳过指标计算。")
             compute_metrics = False
-    print()
 
     loader = DataLoader(
         dataset,
@@ -346,19 +330,12 @@ def main():
     )
 
     # 模型
-    print("加载模型...")
     model = DINOv3_S_UNet(
         pretrained=args.dino_pretrained, use_dilation=args.use_dilation
     ).to(device)
     model.eval()
 
-    missing_keys, unexpected_keys = load_checkpoint(model, args.checkpoint, device)
-    if missing_keys:
-        print(f"警告: {len(missing_keys)} 个缺失的 key")
-    if unexpected_keys:
-        print(f"警告: {len(unexpected_keys)} 个多余的 key")
-    print("Checkpoint 加载成功。")
-    print()
+    load_checkpoint(model, args.checkpoint, device)
 
     # 指标计算器
     dice_calculator = Dice()
@@ -371,13 +348,12 @@ def main():
     case_records = []
 
     # 推理
-    print("开始推理...")
     start_time = time.time()
     total = len(dataset)
     done = 0
 
     with torch.no_grad():
-        for batch in tqdm(loader, desc="Inference", unit="batch"):
+        for batch in tqdm(loader, desc="推理", unit="batch"):
             images = batch["image"].to(device)
             filenames = batch["filename"]
             stems = batch["stem"]
@@ -498,58 +474,34 @@ def main():
                             })
 
                 done += 1
-                if done % 50 == 0 or done == total:
-                    print(f"进度: {done}/{total}")
 
     elapsed = time.time() - start_time
-    print()
-    print(f"推理完成: {done} 张图像, 耗时 {elapsed:.2f}s")
-
-    if save_masks:
-        print(f"预测掩码已保存到: {args.output_dir}")
 
     # 汇总指标 + CI95
     if compute_metrics:
-        print()
-        print("=" * 60)
-        print("指标汇总")
-        print("=" * 60)
-
         dice_mean, dice_ci95 = bootstrap_ci(
             all_dice_values, n_boot=args.n_boot, ci=args.ci, seed=0
         )
         hd95_mean, hd95_ci95 = bootstrap_ci(
             all_hd_values, n_boot=args.n_boot, ci=args.ci, seed=0
         )
-        ece_mean, ece_ci95 = bootstrap_ci(
-            all_ece_values, n_boot=args.n_boot, ci=args.ci, seed=0
-        )
 
         n_evaluated = len(all_dice_values)
-        n_skipped = total - n_evaluated
 
-        print(f"总图像数:     {total}")
-        print(f"评估样本数:   {n_evaluated}")
-        print(f"跳过样本数:   {n_skipped}")
-        print()
-        print(f"Dice  Mean: {dice_mean:.4f}  CI95: ({dice_ci95[0]:.4f}, {dice_ci95[1]:.4f})")
-        print(f"HD95  Mean: {hd95_mean:.4f}  CI95: ({hd95_ci95[0]:.4f}, {hd95_ci95[1]:.4f})")
-        print(f"ECE   Mean: {ece_mean:.4f}  CI95: ({ece_ci95[0]:.4f}, {ece_ci95[1]:.4f})")
+        print("=" * 60)
+        print(f"评估样本数: {n_evaluated}")
+        print(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_ci95[0]:.4f}, {dice_ci95[1]:.4f}])")
+        print(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_ci95[0]:.4f}, {hd95_ci95[1]:.4f}])")
+        print("=" * 60)
 
-        # 保存 JSON
+        # 保存 JSON（逐样本明细，不打印）
         results = {
             "timestamp": timestamp,
             "checkpoint": args.checkpoint,
             "input_dir": args.input_dir,
             "gt_dir": args.gt_dir,
-            "output_dir": args.output_dir,
-            "img_size": args.img_size,
-            "threshold": args.threshold,
-            "n_boot": args.n_boot,
-            "ci": args.ci,
             "total_images": total,
             "evaluated_cases": n_evaluated,
-            "skipped_cases": n_skipped,
             "Dice": {
                 "mean": round(dice_mean, 4),
                 "CI95": [round(dice_ci95[0], 4), round(dice_ci95[1], 4)],
@@ -560,24 +512,14 @@ def main():
                 "CI95": [round(hd95_ci95[0], 4), round(hd95_ci95[1], 4)],
                 "values": [round(float(v), 4) for v in all_hd_values],
             },
-            "ECE": {
-                "mean": round(ece_mean, 4),
-                "CI95": [round(ece_ci95[0], 4), round(ece_ci95[1], 4)],
-                "values": [round(float(v), 4) for v in all_ece_values],
-            },
             "cases": case_records,
         }
 
         with open(json_file, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=2, default=json_default)
 
-        print()
-        print(f"指标 JSON 已保存到: {json_file}")
-        print(f"日志文件:           {log_file}")
-
     # 恢复 stdout
     _restore_stdout(original_stdout)
-    print("\n全部完成!")
 
 
 def _restore_stdout(original_stdout):

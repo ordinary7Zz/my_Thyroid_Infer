@@ -362,7 +362,7 @@ def batch_infer(model: BiomedCLIPClassifier, img_paths: list,
     返回: np.ndarray, shape (N, num_classes)
     """
     all_probs = []
-    for i in tqdm(range(0, len(img_paths), batch_size), desc="推理中"):
+    for i in tqdm(range(0, len(img_paths), batch_size), desc="推理"):
         batch_paths = img_paths[i: i + batch_size]
         tensors = []
         for p in batch_paths:
@@ -539,80 +539,22 @@ def format_eval_report(results, cm, class_names, num_samples,
                        num_classes, y_true, y_pred, n_bootstrap,
                        valid_iters):
     """
-    格式化评估报告为字符串。
+    格式化评估报告为字符串（统一格式）。
     results: dict {metric: (point, ci_lo, ci_hi)}
     """
     lines = []
-    lines.append("=" * 70)
-    lines.append("  BiomedCLIP 分类评估结果（含 95% Bootstrap 置信区间）")
-    lines.append(f"  评估时间:   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append(f"  评估样本数: {num_samples}")
-    lines.append(f"  类别数:     {num_classes}")
-    lines.append(f"  类别名称:   {class_names}")
-    lines.append(f"  Bootstrap:  {n_bootstrap} 次迭代 (有效 {valid_iters} 次)")
-    lines.append("=" * 70)
+    lines.append("=" * 60)
+    lines.append(f"评估样本数: {num_samples}")
 
-    # ---- 主要指标（含 CI95）----
-    lines.append("")
-    lines.append("  📊 平均性能指标 (95% CI):")
-    lines.append("  " + "-" * 56)
-
-    avg_label = "binary" if num_classes == 2 else "macro"
     main_metrics = [
-        ("AUROC",      "AUROC"),
-        ("AUPRC",      "AUPRC"),
-        ("Accuracy",   "Accuracy"),
-        ("Precision",  f"Precision ({avg_label})"),
-        ("Recall",     f"Recall ({avg_label})"),
-        ("F1",         f"F1 ({avg_label})"),
+        "AUROC", "AUPRC", "Accuracy", "Precision", "F1", "Recall",
     ]
-
-    for key, label in main_metrics:
+    for key in main_metrics:
         if key in results:
             mean, ci_lo, ci_hi = results[key]
-            lines.append(f"  {label:<22s}: {mean:.4f}  "
-                         f"({ci_lo:.4f} - {ci_hi:.4f})")
+            lines.append(f"{key:<12s}: {mean:.4f}  (95% CI: [{ci_lo:.4f}, {ci_hi:.4f}])")
 
-    # ---- 混淆矩阵 ----
-    # 混淆矩阵尺寸可能与 class_names 长度不一致（标签范围不匹配），取较大值
-    cm_size = max(len(cm), len(class_names))
-    display_names = []
-    for i in range(cm_size):
-        if i < len(class_names):
-            display_names.append(str(class_names[i]))
-        else:
-            display_names.append(f"class_{i}")
-    lines.append("")
-    lines.append("  📋 混淆矩阵 (行=真实标签, 列=预测标签):")
-    header = f"  {'':>12s}" + "".join(f"{name:>8s}" for name in display_names)
-    lines.append(header)
-    for i, row in enumerate(cm):
-        lines.append(f"  {display_names[i]:>10s}  "
-                     + "".join(f"{v:>8d}" for v in row))
-
-    # ---- 每类准确率 ----
-    lines.append("")
-    lines.append("  📈 每类准确率:")
-    for i in range(len(cm)):
-        class_total = cm[i].sum()
-        class_correct = cm[i, i]
-        name = display_names[i]
-        acc = class_correct / class_total if class_total > 0 else float("nan")
-        lines.append(f"  {name:<12s}: {class_correct}/{class_total} = {acc:.4f}")
-
-    # ---- 多分类 per-class 报告 ----
-    if num_classes > 2:
-        lines.append("")
-        lines.append("  📝 分类报告 (per-class):")
-        report = classification_report(y_true, y_pred,
-                                        target_names=display_names,
-                                        zero_division=0)
-        for line in report.splitlines():
-            lines.append("  " + line)
-
-    lines.append("")
-    lines.append("=" * 70)
-
+    lines.append("=" * 60)
     return "\n".join(lines)
 
 
@@ -660,21 +602,16 @@ def run_evaluation(filenames, all_probs, label_map, class_names,
               "请检查 JSON 中的 filename 是否与图片文件名一致。")
         return
 
-    if skipped:
-        print(f"  ⚠ {len(skipped)} 张图片在标签文件中未找到对应记录，已跳过评估。")
-
     y_true = np.array(y_true_list)
     y_pred = np.array(y_pred_list)
     y_prob = np.array(y_prob_list)
 
     num_eval = len(y_true)
-    print(f"\n  参与评估样本数: {num_eval}")
 
     # 混淆矩阵
     cm = confusion_matrix(y_true, y_pred)
 
     # Bootstrap CI95
-    print(f"\n  计算 Bootstrap CI95 (n={n_bootstrap})...")
     results, valid_iters = bootstrap_ci(
         y_true, y_pred, y_prob, num_classes,
         n_bootstrap=n_bootstrap, seed=seed,
@@ -695,8 +632,6 @@ def run_evaluation(filenames, all_probs, label_map, class_names,
     with open(eval_output, "w", encoding="utf-8") as f:
         f.write(report_str)
         f.write("\n")
-
-    print(f"\n  评估结果已保存至: {eval_output}")
 
 
 # ============================================================================
@@ -719,22 +654,6 @@ def main():
     # 设备
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
-    print(f"\n{'=' * 70}")
-    print(f"  BiomedCLIP 分类推理")
-    print(f"{'=' * 70}")
-    print(f"  图片文件夹: {args.folder}")
-    print(f"  模型权重:   {args.ckpt}")
-    print(f"  类别数:     {args.num_classes}")
-    print(f"  类别名称:   {args.class_names}")
-    print(f"  设备:       {device}")
-    print(f"  批大小:     {args.batch_size}")
-    print(f"  输出 CSV:   {args.output}")
-    if args.label_json:
-        print(f"  标签文件:   {args.label_json}")
-        print(f"  标签字段:   {args.label_field}")
-        print(f"  Bootstrap:  {args.n_bootstrap} 次, seed={args.seed}")
-    print(f"{'=' * 70}")
-
     # 检查文件夹
     if not os.path.isdir(args.folder):
         print(f"错误: 图片文件夹不存在: {args.folder}")
@@ -747,7 +666,6 @@ def main():
         sys.exit(1)
 
     # 加载模型
-    print(f"\n  加载模型...")
     model = load_model(args.ckpt, model_dir, args.num_classes, device)
     preprocess = get_preprocess(image_size=224)
 
@@ -756,27 +674,29 @@ def main():
     if not filenames:
         print(f"错误: 文件夹中未找到图片文件: {args.folder}")
         sys.exit(1)
-    print(f"\n  找到 {len(filenames)} 张图片")
 
     img_paths = [os.path.join(args.folder, f) for f in filenames]
 
+    # 打印配置
+    print("=" * 60)
+    print(f"权重:     {args.ckpt}")
+    print(f"数据:     {args.folder}")
+    print(f"类别数:   {args.num_classes}")
+    if args.label_json:
+        print(f"标签字段: {args.label_field}")
+    print(f"设备:     {device}")
+    print("=" * 60)
+
     # 批量推理
-    print()
     all_probs = batch_infer(model, img_paths, preprocess, device,
                             args.batch_size)
 
     # 保存 CSV
     save_csv(args.output, filenames, all_probs, args.class_names)
-    print(f"\n  分类结果已保存至: {args.output}  (共 {len(filenames)} 条记录)")
 
     # 可选：性能评估（含 CI95）
     if args.label_json:
-        print(f"\n{'=' * 70}")
-        print(f"  开始性能评估（含 Bootstrap CI95）")
-        print(f"{'=' * 70}")
-
         label_map = load_label_json(args.label_json, args.label_field, args.class_names)
-        print(f"  标签文件共 {len(label_map)} 条有效记录")
 
         # 确定评估结果保存路径
         if args.eval_output:

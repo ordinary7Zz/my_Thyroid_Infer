@@ -27,6 +27,7 @@ from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
+from tqdm import tqdm
 
 import models_vit
 
@@ -100,7 +101,7 @@ def run_inference(data_loader, model, device, nb_classes):
     all_preds = []
     all_scores = []  # list of [prob_0, prob_1, ...]
 
-    for images, paths in data_loader:
+    for images, paths in tqdm(data_loader, desc="推理"):
         images = images.to(device, non_blocking=True)
         output = model(images)
         probabilities = torch.softmax(output, dim=1)
@@ -293,7 +294,6 @@ def main():
     # --- dataset ---
     transform = build_eval_transform(args.input_size)
     dataset = FlatImageDataset(args.data_path, transform=transform)
-    print('Found {} images in {}'.format(len(dataset), args.data_path))
 
     data_loader = DataLoader(
         dataset,
@@ -313,8 +313,15 @@ def main():
     load_model_from_checkpoint(model, args.resume, args.nb_classes)
     model.to(device)
 
-    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print('Model: {}, Params: {:.2f}M'.format(args.model, n_params / 1e6))
+    # --- 打印配置 ---
+    print("=" * 60)
+    print(f"权重:     {args.resume}")
+    print(f"数据:     {args.data_path}")
+    print(f"类别数:   {args.nb_classes}")
+    if args.label_file:
+        print(f"标签字段: {args.label_field}")
+    print(f"设备:     {device}")
+    print("=" * 60)
 
     # --- inference ---
     paths, preds, scores = run_inference(data_loader, model, device, args.nb_classes)
@@ -327,8 +334,6 @@ def main():
         if args.label_field is None:
             raise ValueError('--label_field is required when --label_file is provided')
         true_labels = load_labels(args.label_file, args.label_field, image_names)
-        n_matched = sum(1 for t in true_labels if t is not None)
-        print('Labels loaded: {}/{} matched'.format(n_matched, len(image_names)))
 
     # --- save CSV ---
     header = ['image_name', 'predicted_class', 'confidence']
@@ -348,7 +353,6 @@ def main():
             if true_labels is not None:
                 row.append(true_labels[i] if true_labels[i] is not None else '')
             writer.writerow(row)
-    print('Saved {} predictions to {}'.format(len(image_names), args.output_csv))
 
     # --- compute & save metrics ---
     if true_labels is not None:
@@ -365,40 +369,23 @@ def main():
             y_true, y_pred, y_score, args.nb_classes, n_bootstrap=args.n_bootstrap
         )
 
-        os.makedirs(os.path.dirname(os.path.abspath(args.output_log)), exist_ok=True)
-        with open(args.output_log, 'w', encoding='utf-8') as f:
-            f.write('=' * 60 + '\n')
-            f.write('UltraFedFM Classification Metrics\n')
-            f.write('=' * 60 + '\n')
-            f.write('Model: {}\n'.format(args.model))
-            f.write('Checkpoint: {}\n'.format(args.resume))
-            f.write('Data path: {}\n'.format(args.data_path))
-            f.write('Nb classes: {}\n'.format(args.nb_classes))
-            f.write('Label file: {}\n'.format(args.label_file))
-            f.write('Label field: {}\n'.format(args.label_field))
-            f.write('Num samples (matched): {}\n'.format(len(valid_idx)))
-            f.write('Bootstrap iterations: {}\n'.format(args.n_bootstrap))
-            f.write('Averaging: {}\n'.format('binary' if args.nb_classes == 2 else 'macro'))
-            f.write('-' * 60 + '\n')
-            f.write('{:<15s} {:>10s}   {:>12s}\n'.format('Metric', 'Value', 'CI95'))
-            f.write('-' * 60 + '\n')
-            for name in ['AUROC', 'AUPRC', 'Accuracy', 'Precision', 'F1', 'Recall']:
-                val = metrics[name]
-                ci = metrics['{}_CI95'.format(name)]
-                f.write('{:<15s} {:>10.4f}   [{:.4f}, {:.4f}]\n'.format(
-                    name, val, ci[0], ci[1]
-                ))
-            f.write('-' * 60 + '\n')
-            f.write('Timestamp: {}\n'.format(
-                datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            ))
-
-        print('Saved metrics to {}'.format(args.output_log))
-        print('\n--- Metrics Summary ---')
+        # 统一输出
+        print("=" * 60)
+        print(f"评估样本数: {len(valid_idx)}")
         for name in ['AUROC', 'AUPRC', 'Accuracy', 'Precision', 'F1', 'Recall']:
             val = metrics[name]
             ci = metrics['{}_CI95'.format(name)]
-            print('{:<15s}: {:.4f}  CI95=[{:.4f}, {:.4f}]'.format(name, val, ci[0], ci[1]))
+            print(f"{name:<12s}: {val:.4f}  (95% CI: [{ci[0]:.4f}, {ci[1]:.4f}])")
+        print("=" * 60)
+
+        os.makedirs(os.path.dirname(os.path.abspath(args.output_log)), exist_ok=True)
+        with open(args.output_log, 'w', encoding='utf-8') as f:
+            f.write(f"评估样本数: {len(valid_idx)}\n")
+            for name in ['AUROC', 'AUPRC', 'Accuracy', 'Precision', 'F1', 'Recall']:
+                val = metrics[name]
+                ci = metrics['{}_CI95'.format(name)]
+                f.write(f"{name:<12s}: {val:.4f}  (95% CI: [{ci[0]:.4f}, {ci[1]:.4f}])\n")
+
 
 
 if __name__ == '__main__':
