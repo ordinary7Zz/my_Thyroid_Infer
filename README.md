@@ -7,6 +7,7 @@
 - [概述](#概述)
 - [目录结构](#目录结构)
 - [任务与模型一览](#任务与模型一览)
+- [从 HuggingFace 下载并运行（完整流程）](#从-huggingface-下载并运行完整流程)
 - [环境安装](#环境安装)
 - [快速开始](#快速开始)
 - [数据集说明](#数据集说明)
@@ -86,6 +87,35 @@ my_Thyroid_infer/
 | **MedSigLIP** | MedSigLIP-448 | `infer_medsiglip/inference.py` | SigLIP 视觉编码器 + 分类头 |
 | **DINOv3-UNet (多任务)** | DINOv3 ViT-S | `infer_dinov3_unet_multitask/infer_classification.py` | 分割模型的多任务分类头 |
 | **UltraFedFM** | ViT-B | `infer_ultrafedfm/classify.py` | 联邦预训练 ViT 分类 |
+
+---
+
+## 从 HuggingFace 下载并运行
+
+本项目托管在 HuggingFace：https://huggingface.co/instincts7Zz/my_Thyroid_infer （含全部代码和权重，约 14.7 GB，不含 `datasets/`）。
+
+```bash
+# 1. 安装并登录 HuggingFace CLI
+pip install -U huggingface_hub
+hf auth login
+
+# 2. 下载项目
+hf download instincts7Zz/my_Thyroid_infer --repo-type model --local-dir ./my_Thyroid_infer
+cd my_Thyroid_infer
+
+# 3. 安装环境（详见下方"环境安装"）
+conda create -n thyroid_infer python=3.11 -y && conda activate thyroid_infer
+pip install torch==2.4.1 torchvision==0.19.1 --index-url https://download.pytorch.org/whl/cu118
+pip install -r unified_requirements.txt
+
+# 4. 准备数据集（详见下方"数据集说明"，放入 datasets/ 对应目录）
+
+# 5. 运行推理
+python run_all.py          # 统一推理（已有数据集和权重）
+python pipeline.py         # 或端到端流水线（含预处理）
+```
+
+> 国内用户若访问慢，可设置镜像：`export HF_ENDPOINT=https://hf-mirror.com`
 
 ---
 
