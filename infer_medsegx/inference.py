@@ -358,8 +358,13 @@ def main():
 
         # Evaluate (optional)
         if compute_metrics:
-            dsc = dice_coeff(pred_mask, gt_mask)
-            hd = hd95(pred_mask, gt_mask)
+            # 统一 resize 到 224×224 计算指标
+            pred_224 = np.array(Image.fromarray(pred_mask.astype(np.uint8)).resize(
+                (224, 224), Image.NEAREST))
+            gt_224 = np.array(Image.fromarray(gt_mask.astype(np.uint8)).resize(
+                (224, 224), Image.NEAREST))
+            dsc = dice_coeff(pred_224, gt_224)
+            hd = hd95(pred_224, gt_224)
             dsc_list.append(dsc)
             hd95_list.append(hd)
 

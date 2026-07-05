@@ -163,8 +163,11 @@ def run_inference(data_loader, model, device, threshold, output_dir, gt_dir):
                         gt_mask = cv2.resize(gt_mask, (orig_w, orig_h),
                                              interpolation=cv2.INTER_NEAREST)
 
-                    dice = compute_dice(mask, gt_mask)
-                    hd95 = compute_hd95(mask, gt_mask)
+                    # 统一 resize 到 224×224 计算指标
+                    mask_224 = cv2.resize(mask, (224, 224), interpolation=cv2.INTER_NEAREST)
+                    gt_224 = cv2.resize(gt_mask, (224, 224), interpolation=cv2.INTER_NEAREST)
+                    dice = compute_dice(mask_224, gt_224)
+                    hd95 = compute_hd95(mask_224, gt_224)
                     dice_list.append(dice)
                     hd95_list.append(hd95)
 

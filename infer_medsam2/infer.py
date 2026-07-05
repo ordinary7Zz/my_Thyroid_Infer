@@ -356,8 +356,13 @@ def main():
                     continue
 
                 gt_bin = load_gt_mask(gt_path, H, W)
-                dice = compute_dice(pred_bin, gt_bin)
-                hd95 = compute_hd95(pred_bin, gt_bin)
+                # 统一 resize 到 224×224 计算指标
+                pred_224 = np.array(Image.fromarray(pred_bin).resize(
+                    (224, 224), Image.NEAREST))
+                gt_224 = np.array(Image.fromarray(gt_bin).resize(
+                    (224, 224), Image.NEAREST))
+                dice = compute_dice(pred_224, gt_224)
+                hd95 = compute_hd95(pred_224, gt_224)
                 dice_values.append(dice)
                 hd95_values.append(hd95)
 

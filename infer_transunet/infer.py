@@ -168,13 +168,29 @@ def infer_one(net: torch.nn.Module, img_path: str,
     return (pred > 0).astype(np.uint8)
 
 
+METRIC_SIZE = 224
+
+
+def _resize_mask_224(mask: np.ndarray) -> np.ndarray:
+    """将二值 mask resize 到 224×224 (NEAREST)，用于统一指标计算分辨率。"""
+    return np.array(
+        Image.fromarray(mask.astype(np.uint8)).resize(
+            (METRIC_SIZE, METRIC_SIZE), Image.NEAREST
+        )
+    ).astype(np.uint8)
+
+
 def calculate_metric(pred: np.ndarray, gt: np.ndarray) -> Tuple[float, float]:
     """计算单例 Dice 和 HD95，使用统一指标模块。
+
+    所有 mask 统一 resize 到 224×224 后计算，确保与其他模型口径一致。
 
     Returns:
         (dice, hd95)
     """
-    return compute_dice(pred, gt), compute_hd95(pred, gt)
+    pred_224 = _resize_mask_224(pred)
+    gt_224 = _resize_mask_224(gt)
+    return compute_dice(pred_224, gt_224), compute_hd95(pred_224, gt_224)
 
 
 # ---------------------------------------------------------------------------
