@@ -1,0 +1,82 @@
+# ============================================================================
+# 统一推理配置文件
+# ============================================================================
+# 修改这里的路径即可。相对路径以脚本所在目录 (run_all.py 同级) 为基准，
+# 无论从哪个目录运行脚本，路径行为都一致。
+#
+# 用法:
+#   python run_all.py                          # 使用本配置文件
+#   python run_all.py --config other.yaml      # 使用其他配置文件
+# ============================================================================
+
+# --- 数据集路径 ---
+datasets:
+  gland_images:  ./datasets/TGVideo_PNG/test/image
+  gland_masks:   ./datasets/TGVideo_PNG/test/mask
+  nodule_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/images
+  nodule_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/masks
+  binary_images: ./datasets/TN3K/test/images
+  tirads_images: ./datasets/Cine-Clip/test/images
+
+# --- 标签文件 ---
+labels:
+  binary_json:  ./datasets/TN3K/test/TN3K_test_label.json
+  binary_field: malignancy
+  tirads_json:  ./datasets/Cine-Clip/test/Cine-Clip_test_label.json
+  tirads_field: tirads
+
+# --- 模型权重 ---
+weights:
+  # 分割 — 腺体
+  gland:
+    dinov3_unet: ./infer_dinov3_unet/checkpoints/TGVideo/dino_unet_train_TGVideo_epoch_30.pth
+    medsam2:     ./infer_medsam2/checkpoints/TGVideo/checkpoint_10.pt
+    medsegx:     ./infer_medsegx/checkpoints/TGVideo/checkpoint_epoch_29.pth
+    transunet:   ./infer_transunet/checkpoints/TGVideo/epoch_49.pth
+    ultrafedfm:  ./infer_ultrafedfm/checkpoints/TGVideo/epoch_bestDice.pth
+
+  # 分割 — 结节
+  nodule:
+    dinov3_unet: ./infer_dinov3_unet/checkpoints/Nodule/dino_unet_train_dataset_4_epoch_50.pth
+    medsam2:     ./infer_medsam2/checkpoints/Nodule/checkpoint_15.pt
+    medsegx:     ./infer_medsegx/checkpoints/Nodule/model_best.pth
+    transunet:   ./infer_transunet/checkpoints/Nodule/epoch_49.pth
+    ultrafedfm:  ./infer_ultrafedfm/checkpoints/Nodule/epoch_bestDice.pth
+
+  # 分类 — 良恶性二分类
+  binary:
+    biomedclip:            ./infer_biomedclip/checkpoints/BM_2cls/best_model.pth
+    medsiglip:             ./infer_medsiglip/checkpoints/BM_2cls/best_model.pt
+    ultrafedfm:            ./infer_ultrafedfm/checkpoints/BM_2cls/checkpoint-best_acc.pth
+    dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/BM_2cls/dino_unet_gamtl_train_multitask_dataset_3_epoch_50.pth
+
+  # 分类 — TIRADS 五分类
+  tirads:
+    biomedclip:            ./infer_biomedclip/checkpoints/TIRADS_5cls/best_model.pth
+    medsiglip:             ./infer_medsiglip/checkpoints/TIRADS_5cls/best_model.pt
+    ultrafedfm:            ./infer_ultrafedfm/checkpoints/TIRADS_5cls/checkpoint-best_acc.pth
+    dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/TIRADS_5cls/dino_unet_train_TIRADS_Cine-Clip_epoch_50.pth
+
+# --- 预训练骨干模型目录 ---
+pretrained:
+  biomedclip_dir:  ./infer_biomedclip/pretrained_models/biomedclip
+  medsiglip_dir:   ./infer_medsiglip/pretrained_models/medsiglip-448
+  medsegx_sam_dir: ./infer_medsegx/pretrained_models/SAM
+  medsam2_config:  ./infer_medsam2/sam2/configs/sam2.1_hiera_t512.yaml
+
+# --- 输出根目录 ---
+output_root: ./results/nodule_one_dataset
+
+# --- 输出选项 ---
+# 分割任务是否保存预测掩码到 results/<task>/<model>/masks/
+save_masks: false
+
+# --- 预处理参数 (pipeline.py 使用) ---
+prepare:
+  input_dir:    ./datasets/甲状腺私有数据/新建文件夹
+  output_dir:   ./datasets/processed
+  roi_checkpoint: ./my_ThyroidROI/outputs/best_dice_model.pth
+
+# --- 通用参数 ---
+device: cuda
+n_bootstrap: 2000
