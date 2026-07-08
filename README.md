@@ -104,9 +104,15 @@ hf download instincts7Zz/my_Thyroid_infer --repo-type model --local-dir ./my_Thy
 cd my_Thyroid_infer
 
 # 3. 安装环境（详见下方"环境安装"）
+#    方式 A：在线安装（需联网，从 PyPI 下载）
 conda create -n thyroid_infer python=3.11 -y && conda activate thyroid_infer
 pip install torch==2.4.1 torchvision==0.19.1 --index-url https://download.pytorch.org/whl/cu118
 pip install -r unified_requirements.txt
+#
+#    方式 B：离线安装（使用仓库内 wheels/，无需联网）
+conda create -n thyroid_infer python=3.11 -y && conda activate thyroid_infer
+pip install --no-index --find-links=./wheels/ torch==2.4.1 torchvision==0.19.1
+pip install --no-index --find-links=./wheels/ -r unified_requirements.txt
 
 # 4. 准备数据集（详见下方"数据集说明"，放入 datasets/ 对应目录）
 
@@ -127,7 +133,7 @@ python pipeline.py         # 或端到端流水线（含预处理）
 - CUDA 11.8
 - PyTorch 2.4.1
 
-### 安装步骤
+### 方式一：在线安装（需联网）
 
 ```bash
 # 1. 创建 conda 环境
@@ -141,6 +147,26 @@ pip install torch==2.4.1 torchvision==0.19.1 \
 # 3. 安装其余依赖
 pip install -r unified_requirements.txt
 ```
+
+### 方式二：离线安装（使用 wheels/，无需联网）
+
+仓库内 `wheels/` 目录包含了所有依赖的预编译 wheel 文件（Linux x86_64 + Python 3.11 + CUDA 11.8），适合网络受限环境或需要精确复现环境的场景。
+
+```bash
+# 1. 创建 conda 环境
+conda create -n thyroid_infer python=3.11 -y
+conda activate thyroid_infer
+
+# 2. 离线安装 PyTorch（--no-index 表示不访问 PyPI，只从 wheels/ 找包）
+pip install --no-index --find-links=./wheels/ \
+    torch==2.4.1 torchvision==0.19.1
+
+# 3. 离线安装其余依赖
+pip install --no-index --find-links=./wheels/ \
+    -r unified_requirements.txt
+```
+
+> **注意**：`wheels/` 中的 wheel 文件是平台相关的，仅适用于 **Linux x86_64 + Python 3.11**。其他平台请使用在线安装。
 
 详见各子目录 `README.md` 中的模型权重准备和使用说明。
 
