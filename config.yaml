@@ -13,16 +13,16 @@
 datasets:
   gland_images:  ./datasets/TGVideo_PNG/test/image
   gland_masks:   ./datasets/TGVideo_PNG/test/mask
-  nodule_images: ./datasets/TN3K/test/images
-  nodule_masks:  ./datasets/TN3K/test/masks
-  binary_images: ./datasets/TN3K/test/images
-  tirads_images: ./datasets/Cine-Clip/test/images
+  nodule_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/images
+  nodule_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/masks
+  binary_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/images
+  tirads_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/valid/images
 
 # --- 标签文件 ---
 labels:
-  binary_json:  ./datasets/TN3K/test/TN3K_test_label.json
+  binary_json:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/sample_test_label.json
   binary_field: malignancy
-  tirads_json:  ./datasets/Cine-Clip/test/Cine-Clip_test_label.json
+  tirads_json:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/valid/Cine-Clip_valid_label.json
   tirads_field: tirads
 
 # --- 模型权重 ---
