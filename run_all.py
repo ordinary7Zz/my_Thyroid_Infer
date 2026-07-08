@@ -23,6 +23,7 @@
 """
 
 import argparse
+import datetime
 import glob
 import os
 import re
@@ -104,10 +105,23 @@ def _resolve(path):
     return str(p.resolve())
 
 
+# 使用时间戳文件名避免多次运行覆盖的模型
+_TIMESTAMP_MODELS = {"medsegx", "transunet", "ultrafedfm"}
+# 整个 run_all.py 共享同一时间戳（同一次运行的所有文件用相同时间戳）
+_RUN_TIMESTAMP = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+
+
 def _out(task, model, filename=""):
-    """构建输出路径: results/<task>/<model>/<filename>"""
+    """构建输出路径: results/<task>/<model>/<filename>
+
+    对 _TIMESTAMP_MODELS 中的模型，自动在文件名中插入运行时间戳，
+    避免多次运行时日志/预测文件相互覆盖。
+    """
     p = os.path.join(CONFIG["output_root"], task, model)
     if filename:
+        if model in _TIMESTAMP_MODELS:
+            name, ext = os.path.splitext(filename)
+            filename = f"{name}_{_RUN_TIMESTAMP}{ext}"
         p = os.path.join(p, filename)
     return _resolve(p)
 
@@ -439,7 +453,8 @@ _LOG_DIR_MODELS = {"dinov3_unet", "medsam2"}
 def _find_metrics_log(task_id, model_name):
     """查找模型的 metrics log 文件路径。
 
-    - dinov3_unet / medsam2 使用 --log_dir（目录），文件名含时间戳，取最新 .log
+    - dinov3_unet / medsam2 使用 --log_dir（目录），文件名含时间戳，取最新 infer_*.log
+    - medsegx / transunet / ultrafedfm 使用 metrics_<timestamp>.log，取最新
     - 其他模型使用固定文件名 metrics.log
     """
     out_dir = _resolve(os.path.join(CONFIG["output_root"], task_id, model_name))
@@ -447,6 +462,11 @@ def _find_metrics_log(task_id, model_name):
     if model_name in _LOG_DIR_MODELS:
         # 找目录下最新的 infer_*.log
         candidates = sorted(glob.glob(os.path.join(out_dir, "infer_*.log")),
+                            key=os.path.getmtime, reverse=True)
+        return candidates[0] if candidates else None
+    elif model_name in _TIMESTAMP_MODELS:
+        # 找目录下最新的 metrics_*.log
+        candidates = sorted(glob.glob(os.path.join(out_dir, "metrics_*.log")),
                             key=os.path.getmtime, reverse=True)
         return candidates[0] if candidates else None
     else:
