@@ -1,0 +1,11 @@
+============================================================
+权重:     /mnt/wangbd8/workspace/ThyroidAgent/my_Thyroid_Infer/infer_dinov3_unet/checkpoints/Nodule/dino_unet_train_dataset_4_epoch_50.pth
+数据:     /mnt/wangbd8/workspace/DataSets/ThyroidAgent/augtrain_PNG/image
+GT:       /mnt/wangbd8/workspace/DataSets/ThyroidAgent/augtrain_PNG/mask
+设备:     cuda
+============================================================
+============================================================
+评估样本数: 7288
+Dice:  0.9145  (95% CI: [0.9131, 0.9160])
+HD95:  1.8692  (95% CI: [1.8062, 1.9376])
+============================================================

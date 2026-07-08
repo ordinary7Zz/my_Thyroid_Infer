@@ -1,0 +1,11 @@
+2026-07-07 23:15:10 [INFO] ============================================================
+2026-07-07 23:15:10 [INFO] 权重:     /mnt/wangbd8/workspace/ThyroidAgent/my_Thyroid_Infer/infer_medsam2/checkpoints/Nodule/checkpoint_15.pt
+2026-07-07 23:15:10 [INFO] 数据:     /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/images
+2026-07-07 23:15:10 [INFO] GT:       /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/masks
+2026-07-07 23:15:10 [INFO] 设备:     cuda
+2026-07-07 23:15:10 [INFO] ============================================================
+2026-07-07 23:15:42 [INFO] ============================================================
+2026-07-07 23:15:42 [INFO] 评估样本数: 614
+2026-07-07 23:15:42 [INFO] Dice:  0.8552  (95% CI: [0.8413, 0.8674])
+2026-07-07 23:15:42 [INFO] HD95:  11.0932  (95% CI: [9.4683, 12.7800])
+2026-07-07 23:15:42 [INFO] ============================================================
