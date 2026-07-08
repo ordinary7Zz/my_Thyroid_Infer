@@ -113,6 +113,11 @@ pip install -r unified_requirements.txt
 conda create -n thyroid_infer python=3.11 -y && conda activate thyroid_infer
 pip install --no-index --find-links=./wheels/ torch==2.4.1 torchvision==0.19.1
 pip install --no-index --find-links=./wheels/ -r unified_requirements.txt
+#
+#    方式 C：conda-pack 离线环境（解压即用，无需安装任何包）
+mkdir -p ~/envs/thyroid_infer
+tar -xzf thyroid_infer_env.tar.gz -C ~/envs/thyroid_infer
+source ~/envs/thyroid_infer/bin/activate && conda-unpack
 
 # 4. 准备数据集（详见下方"数据集说明"，放入 datasets/ 对应目录）
 
@@ -147,6 +152,11 @@ pip install -r unified_requirements.txt
 conda create -n thyroid_infer python=3.11 -y && conda activate thyroid_infer
 pip install --no-index --find-links=./wheels/ torch==2.4.1 torchvision==0.19.1
 pip install --no-index --find-links=./wheels/ -r unified_requirements.txt
+#
+#    方式 C：conda-pack 离线环境（解压即用，无需安装任何包）
+mkdir -p ~/envs/thyroid_infer
+tar -xzf thyroid_infer_env.tar.gz -C ~/envs/thyroid_infer
+source ~/envs/thyroid_infer/bin/activate && conda-unpack
 
 # 4. 准备数据集（详见下方"数据集说明"，放入 datasets/ 对应目录）
 
@@ -201,6 +211,31 @@ pip install --no-index --find-links=./wheels/ \
 ```
 
 > **注意**：`wheels/` 中的 wheel 文件是平台相关的，仅适用于 **Linux x86_64 + Python 3.11**。其他平台请使用在线安装。
+
+### 方式三：conda-pack 离线环境（解压即用，无需安装任何包）
+
+仓库内 `thyroid_infer_env.tar.gz` 是用 `conda-pack` 打包的完整 conda 环境（含 Python 解释器 + 所有依赖，约 3.4 GB），解压后直接激活即可使用，无需 `pip install`。
+
+```bash
+# 1. 解压环境（解压到任意目录，不需要 conda）
+mkdir -p ~/envs/thyroid_infer
+tar -xzf thyroid_infer_env.tar.gz -C ~/envs/thyroid_infer
+
+# 2. 激活环境
+source ~/envs/thyroid_infer/bin/activate
+
+# 3. 修复路径（首次激活后执行一次）
+conda-unpack
+
+# 4. 运行推理
+cd my_Thyroid_infer
+python run_all.py
+```
+
+> **注意**：
+> - 该环境仅适用于 **Linux x86_64**（与打包机器的 OS / glibc 版本相关）
+> - 无需预装 conda 或 Python，解压即用
+> - 激活方式为 `source ~/envs/thyroid_infer/bin/activate`（不是 `conda activate`）
 
 详见各子目录 `README.md` 中的模型权重准备和使用说明。
 
