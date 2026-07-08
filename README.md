@@ -125,6 +125,40 @@ python pipeline.py         # 或端到端流水线（含预处理）
 
 ---
 
+## 从 ModelScope 下载并运行
+
+本项目也托管在 ModelScope（魔搭社区）：https://www.modelscope.cn/instincts/my_Thyroid_infer （内容与 HuggingFace 同步）。
+
+```bash
+# 1. 安装 ModelScope CLI
+pip install modelscope
+
+# 2. 下载项目
+ms download instincts/my_Thyroid_infer --local_dir ./my_Thyroid_infer
+cd my_Thyroid_infer
+
+# 3. 安装环境（详见下方"环境安装"）
+#    方式 A：在线安装（需联网，从 PyPI 下载）
+conda create -n thyroid_infer python=3.11 -y && conda activate thyroid_infer
+pip install torch==2.4.1 torchvision==0.19.1 --index-url https://download.pytorch.org/whl/cu118
+pip install -r unified_requirements.txt
+#
+#    方式 B：离线安装（使用仓库内 wheels/，无需联网）
+conda create -n thyroid_infer python=3.11 -y && conda activate thyroid_infer
+pip install --no-index --find-links=./wheels/ torch==2.4.1 torchvision==0.19.1
+pip install --no-index --find-links=./wheels/ -r unified_requirements.txt
+
+# 4. 准备数据集（详见下方"数据集说明"，放入 datasets/ 对应目录）
+
+# 5. 运行推理
+python run_all.py          # 统一推理（已有数据集和权重）
+python pipeline.py         # 或端到端流水线（含预处理）
+```
+
+> ModelScope 为国内平台，无需镜像加速，下载速度通常优于 HuggingFace。
+
+---
+
 ## 环境安装
 
 ### 基础环境
