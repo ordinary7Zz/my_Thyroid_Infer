@@ -153,7 +153,7 @@ def setup_logger(log_dir):
     """设置日志：同时输出到控制台和文件。返回 (logger, log_file_path)。"""
     os.makedirs(log_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = os.path.join(log_dir, f"infer_{timestamp}.log")
+    log_file = os.path.join(log_dir, f"metrics_{timestamp}.log")
 
     logger = logging.getLogger("infer_medsam2")
     logger.setLevel(logging.INFO)
@@ -307,6 +307,7 @@ def main():
     # --- 推理 + 评估 ---
     dice_values = []
     hd95_values = []
+    per_sample = []  # (filename, dice, hd95)
     n_saved = 0
     n_no_gt = 0
 
@@ -365,6 +366,7 @@ def main():
                 hd95 = compute_hd95(pred_224, gt_224)
                 dice_values.append(dice)
                 hd95_values.append(hd95)
+                per_sample.append((os.path.basename(img_path), dice, hd95))
 
     elapsed = time.time() - start_time
 
@@ -378,6 +380,13 @@ def main():
             logger.info(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_lo:.4f}, {dice_hi:.4f}])")
             logger.info(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_lo:.4f}, {hd95_hi:.4f}])")
             logger.info("=" * 60)
+
+            # 追加每样本指标到 log 文件
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write("\n--- Per-Sample Metrics ---\n")
+                f.write("filename,dice,hd95\n")
+                for fname, dsc, hd in per_sample:
+                    f.write(f"{fname},{dsc:.4f},{hd:.4f}\n")
         else:
             logger.warning("未计算到任何有效指标（可能 GT mask 均未找到）")
 

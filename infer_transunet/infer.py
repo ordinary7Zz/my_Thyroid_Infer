@@ -231,6 +231,7 @@ def main():
     # 推理循环
     dice_list: List[float] = []
     hd95_list: List[float] = []
+    per_sample = []  # (stem, dice, hd95)
 
     for stem, img_path in tqdm(files, desc="推理"):
         # 推理
@@ -253,6 +254,7 @@ def main():
             d, h95 = calculate_metric(pred, gt_bin)
             dice_list.append(d)
             hd95_list.append(h95)
+            per_sample.append((stem, d, h95))
 
     # 汇总输出
     if compute_metrics:
@@ -277,6 +279,10 @@ def main():
             f.write(f"评估样本数: {n_eval}\n")
             f.write(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_lo:.4f}, {dice_hi:.4f}])\n")
             f.write(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_lo:.4f}, {hd95_hi:.4f}])\n")
+            f.write("\n--- Per-Sample Metrics ---\n")
+            f.write("filename,dice,hd95\n")
+            for stem, d, h95 in per_sample:
+                f.write(f"{stem},{d:.4f},{h95:.4f}\n")
 
 
 if __name__ == "__main__":

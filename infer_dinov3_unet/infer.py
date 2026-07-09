@@ -294,13 +294,11 @@ def main():
     # 设置 log（仅当计算指标时）
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = None
-    json_file = None
     original_stdout = sys.stdout
 
     if compute_metrics:
         os.makedirs(args.log_dir, exist_ok=True)
-        log_file = os.path.join(args.log_dir, f"infer_{timestamp}.log")
-        json_file = os.path.join(args.log_dir, f"infer_{timestamp}_metrics.json")
+        log_file = os.path.join(args.log_dir, f"metrics_{timestamp}.log")
         sys.stdout = TeeLogger(log_file)
 
     # 打印配置
@@ -499,29 +497,18 @@ def main():
         print(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_ci_lo:.4f}, {hd95_ci_hi:.4f}])")
         print("=" * 60)
 
-        # 保存 JSON（逐样本明细，不打印）
-        results = {
-            "timestamp": timestamp,
-            "checkpoint": args.checkpoint,
-            "input_dir": args.input_dir,
-            "gt_dir": args.gt_dir,
-            "total_images": total,
-            "evaluated_cases": n_evaluated,
-            "Dice": {
-                "mean": round(dice_mean, 4),
-                "CI95": [round(dice_ci_lo, 4), round(dice_ci_hi, 4)],
-                "values": [round(float(v), 4) for v in all_dice_values],
-            },
-            "HD95": {
-                "mean": round(hd95_mean, 4),
-                "CI95": [round(hd95_ci_lo, 4), round(hd95_ci_hi, 4)],
-                "values": [round(float(v), 4) for v in all_hd_values],
-            },
-            "cases": case_records,
-        }
-
-        with open(json_file, "w", encoding="utf-8") as f:
-            json.dump(results, f, ensure_ascii=False, indent=2, default=json_default)
+        # 每样本指标
+        print("\n--- Per-Sample Metrics ---")
+        print("filename,dice,hd95")
+        for rec in case_records:
+            if rec.get("skipped"):
+                continue
+            fname = rec.get("filename", "")
+            dice = rec.get("dice")
+            hd95 = rec.get("hd95")
+            dice_str = f"{dice:.4f}" if dice is not None else "N/A"
+            hd95_str = f"{hd95:.4f}" if hd95 is not None else "N/A"
+            print(f"{fname},{dice_str},{hd95_str}")
 
     # 恢复 stdout
     _restore_stdout(original_stdout)

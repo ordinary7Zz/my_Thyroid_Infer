@@ -106,7 +106,8 @@ def _resolve(path):
 
 
 # 使用时间戳文件名避免多次运行覆盖的模型
-_TIMESTAMP_MODELS = {"medsegx", "transunet", "ultrafedfm"}
+# dinov3_unet / medsam2 使用 --log_dir（目录），脚本内部生成 metrics_<ts>.log，无需在此列出
+_TIMESTAMP_MODELS = {"medsegx", "transunet", "ultrafedfm", "biomedclip", "medsiglip", "dinov3_unet_multitask"}
 # 整个 run_all.py 共享同一时间戳（同一次运行的所有文件用相同时间戳）
 _RUN_TIMESTAMP = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
@@ -446,32 +447,16 @@ _METRIC_RE = re.compile(
     r'(\w+)\s*:\s+([\d.]+)\s+\(95% CI: \[([\d.]+),\s+([\d.]+)\]\)'
 )
 
-# 使用 --log_dir（目录形式，文件名带时间戳）的模型
-_LOG_DIR_MODELS = {"dinov3_unet", "medsam2"}
-
-
 def _find_metrics_log(task_id, model_name):
     """查找模型的 metrics log 文件路径。
 
-    - dinov3_unet / medsam2 使用 --log_dir（目录），文件名含时间戳，取最新 infer_*.log
-    - medsegx / transunet / ultrafedfm 使用 metrics_<timestamp>.log，取最新
-    - 其他模型使用固定文件名 metrics.log
+    所有模型的 log 文件统一命名为 metrics_<timestamp>.log，
+    取目录下最新的 metrics_*.log。
     """
     out_dir = _resolve(os.path.join(CONFIG["output_root"], task_id, model_name))
-
-    if model_name in _LOG_DIR_MODELS:
-        # 找目录下最新的 infer_*.log
-        candidates = sorted(glob.glob(os.path.join(out_dir, "infer_*.log")),
-                            key=os.path.getmtime, reverse=True)
-        return candidates[0] if candidates else None
-    elif model_name in _TIMESTAMP_MODELS:
-        # 找目录下最新的 metrics_*.log
-        candidates = sorted(glob.glob(os.path.join(out_dir, "metrics_*.log")),
-                            key=os.path.getmtime, reverse=True)
-        return candidates[0] if candidates else None
-    else:
-        p = os.path.join(out_dir, "metrics.log")
-        return p if os.path.isfile(p) else None
+    candidates = sorted(glob.glob(os.path.join(out_dir, "metrics_*.log")),
+                        key=os.path.getmtime, reverse=True)
+    return candidates[0] if candidates else None
 
 
 def _parse_metrics_log(log_path):

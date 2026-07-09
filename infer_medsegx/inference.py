@@ -325,6 +325,7 @@ def main():
 
     # ── Inference loop ──
     dsc_list, hd95_list = [], []
+    per_sample = []  # (filename, dice, hd95)
     skipped = 0
 
     for fname in tqdm(img_files, desc="推理"):
@@ -367,6 +368,7 @@ def main():
             hd = hd95(pred_224, gt_224)
             dsc_list.append(dsc)
             hd95_list.append(hd)
+            per_sample.append((fname, dsc, hd))
 
     # ── Summary ──
     evaluated = len(dsc_list)
@@ -405,6 +407,10 @@ def main():
             f.write(f"评估样本数: {evaluated}\n")
             f.write(f"Dice:  {mean_dsc:.4f}  (95% CI: [{dsc_lo:.4f}, {dsc_hi:.4f}])\n")
             f.write(f"HD95:  {mean_hd:.4f}  (95% CI: [{hd_lo:.4f}, {hd_hi:.4f}])\n")
+            f.write("\n--- Per-Sample Metrics ---\n")
+            f.write("filename,dice,hd95\n")
+            for fname, dsc, hd in per_sample:
+                f.write(f"{fname},{dsc:.4f},{hd:.4f}\n")
 
 
 if __name__ == "__main__":

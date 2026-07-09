@@ -428,6 +428,7 @@ def run_evaluation(filenames, all_probs, label_map, class_names,
 
     # 匹配有标签的样本
     y_true_list, y_pred_list, y_prob_list = [], [], []
+    per_sample = []  # (filename, true_label, pred_label)
     skipped = []
     out_of_range = []
 
@@ -446,6 +447,7 @@ def run_evaluation(filenames, all_probs, label_map, class_names,
         y_true_list.append(true_label)
         y_pred_list.append(pred_idx)
         y_prob_list.append(probs)
+        per_sample.append((fname, true_label, pred_idx))
 
     if out_of_range:
         print(f"  ⚠ 以下 {len(out_of_range)} 条样本标签超出范围 [0, {num_classes-1}]，已跳过:")

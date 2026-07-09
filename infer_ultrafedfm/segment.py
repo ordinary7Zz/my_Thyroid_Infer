@@ -131,6 +131,7 @@ def run_inference(data_loader, model, device, threshold, output_dir, gt_dir):
     model.eval()
     dice_list = []
     hd95_list = []
+    per_sample = []  # (filename, dice, hd95)
 
     for images, names, orig_hs, orig_ws in tqdm(data_loader, desc="推理"):
         images = images.to(device, non_blocking=True)
@@ -170,8 +171,9 @@ def run_inference(data_loader, model, device, threshold, output_dir, gt_dir):
                     hd95 = compute_hd95(mask_224, gt_224)
                     dice_list.append(dice)
                     hd95_list.append(hd95)
+                    per_sample.append((name, dice, hd95))
 
-    return dice_list, hd95_list
+    return dice_list, hd95_list, per_sample
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +247,7 @@ def main():
     print("=" * 60)
 
     # --- inference ---
-    dice_list, hd95_list = run_inference(
+    dice_list, hd95_list, per_sample = run_inference(
         data_loader, model, device, args.threshold,
         args.output_dir, args.gt_dir
     )
@@ -270,6 +272,10 @@ def main():
             f.write(f"评估样本数: {len(dice_list)}\n")
             f.write(f"Dice:  {dice_mean:.4f}  (95% CI: [{dice_ci_lo:.4f}, {dice_ci_hi:.4f}])\n")
             f.write(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_ci_lo:.4f}, {hd95_ci_hi:.4f}])\n")
+            f.write("\n--- Per-Sample Metrics ---\n")
+            f.write("filename,dice,hd95\n")
+            for fname, dsc, hd in per_sample:
+                f.write(f"{fname},{dsc:.4f},{hd:.4f}\n")
     elif args.gt_dir is not None and len(dice_list) == 0:
         print('No GT masks matched the image filenames — skipping metrics')
 
