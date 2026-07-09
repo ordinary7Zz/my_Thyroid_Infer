@@ -115,7 +115,8 @@ _TIMESTAMP_MODELS = {"medsegx", "transunet", "ultrafedfm", "biomedclip", "medsig
 _RUN_TIMESTAMP = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
 # 预训练模式下跳过的模型（分割/分类头未训练，输出无意义）
-_PRETRAINED_SKIP_MODELS = {"transunet", "ultrafedfm"}
+# 现已改为不跳过：直接用 weights 中的 finetune 权重运行
+_PRETRAINED_SKIP_MODELS = set()
 
 
 def _out(task, model, filename=""):
@@ -207,25 +208,23 @@ def _seg_gland():
         "--log_file", _out("gland", "medsegx", "metrics.log"),
     ]))
 
-    # transunet (预训练模式跳过)
-    if MODE != "pretrained":
-        cmds.append(("transunet", [
-            sys.executable, str(ROOT / "infer_transunet" / "infer.py"),
-            "--ckpt", w["transunet"],
-            "--img_dir", img,
-            "--gt_dir", gt,
-            "--log", _out("gland", "transunet", "metrics.log"),
-        ]))
+    # transunet
+    cmds.append(("transunet", [
+        sys.executable, str(ROOT / "infer_transunet" / "infer.py"),
+        "--ckpt", w["transunet"],
+        "--img_dir", img,
+        "--gt_dir", gt,
+        "--log", _out("gland", "transunet", "metrics.log"),
+    ]))
 
-    # ultrafedfm (segment) — 预训练模式跳过
-    if MODE != "pretrained":
-        cmds.append(("ultrafedfm", [
-            sys.executable, str(ROOT / "infer_ultrafedfm" / "segment.py"),
-            "--data_path", img,
-            "--resume", w["ultrafedfm"],
-            "--gt_dir", gt,
-            "--output_log", _out("gland", "ultrafedfm", "metrics.log"),
-        ]))
+    # ultrafedfm (segment)
+    cmds.append(("ultrafedfm", [
+        sys.executable, str(ROOT / "infer_ultrafedfm" / "segment.py"),
+        "--data_path", img,
+        "--resume", w["ultrafedfm"],
+        "--gt_dir", gt,
+        "--output_log", _out("gland", "ultrafedfm", "metrics.log"),
+    ]))
 
     return _add_mask_output("gland", cmds)
 
@@ -268,25 +267,23 @@ def _seg_nodule():
         "--log_file", _out("nodule", "medsegx", "metrics.log"),
     ]))
 
-    # transunet (预训练模式跳过)
-    if MODE != "pretrained":
-        cmds.append(("transunet", [
-            sys.executable, str(ROOT / "infer_transunet" / "infer.py"),
-            "--ckpt", w["transunet"],
-            "--img_dir", img,
-            "--gt_dir", gt,
-            "--log", _out("nodule", "transunet", "metrics.log"),
-        ]))
+    # transunet
+    cmds.append(("transunet", [
+        sys.executable, str(ROOT / "infer_transunet" / "infer.py"),
+        "--ckpt", w["transunet"],
+        "--img_dir", img,
+        "--gt_dir", gt,
+        "--log", _out("nodule", "transunet", "metrics.log"),
+    ]))
 
-    # ultrafedfm (segment) — 预训练模式跳过
-    if MODE != "pretrained":
-        cmds.append(("ultrafedfm", [
-            sys.executable, str(ROOT / "infer_ultrafedfm" / "segment.py"),
-            "--data_path", img,
-            "--resume", w["ultrafedfm"],
-            "--gt_dir", gt,
-            "--output_log", _out("nodule", "ultrafedfm", "metrics.log"),
-        ]))
+    # ultrafedfm (segment)
+    cmds.append(("ultrafedfm", [
+        sys.executable, str(ROOT / "infer_ultrafedfm" / "segment.py"),
+        "--data_path", img,
+        "--resume", w["ultrafedfm"],
+        "--gt_dir", gt,
+        "--output_log", _out("nodule", "ultrafedfm", "metrics.log"),
+    ]))
 
     return _add_mask_output("nodule", cmds)
 
@@ -358,19 +355,18 @@ def _cls_binary():
             "--n_bootstrap", nb,
         ]))
 
-    # ultrafedfm (classify) — 预训练模式跳过
-    if MODE != "pretrained":
-        cmds.append(("ultrafedfm", [
-            sys.executable, str(ROOT / "infer_ultrafedfm" / "classify.py"),
-            "--data_path", img,
-            "--resume", w["ultrafedfm"],
-            "--nb_classes", "2",
-            "--label_file", label,
-            "--label_field", field,
-            "--output_csv", _out("binary", "ultrafedfm", "predictions.csv"),
-            "--output_log", _out("binary", "ultrafedfm", "metrics.log"),
-            "--n_bootstrap", nb,
-        ]))
+    # ultrafedfm (classify)
+    cmds.append(("ultrafedfm", [
+        sys.executable, str(ROOT / "infer_ultrafedfm" / "classify.py"),
+        "--data_path", img,
+        "--resume", w["ultrafedfm"],
+        "--nb_classes", "2",
+        "--label_file", label,
+        "--label_field", field,
+        "--output_csv", _out("binary", "ultrafedfm", "predictions.csv"),
+        "--output_log", _out("binary", "ultrafedfm", "metrics.log"),
+        "--n_bootstrap", nb,
+    ]))
 
     # dinov3_unet_multitask
     cmds.append(("dinov3_unet_multitask", [
@@ -385,25 +381,24 @@ def _cls_binary():
         "--n_boot", nb,
     ]))
 
-    # autogluon — 预训练模式跳过（无零样本推理）
-    if MODE != "pretrained":
-        _cls_mask_dir = _resolve(os.path.join(
-            CONFIG["output_root"], "gland", "dinov3_unet", "masks"
-        )) if CONFIG.get("use_dino_mask_for_cls", False) else CONFIG["datasets"]["binary_masks"]
-        cmds.append(("autogluon", [
-            sys.executable, str(ROOT / "infer_autogluon" / "infer.py"),
-            "--image_dir", img,
-            "--mask_dir", _cls_mask_dir,
-            "--model_dir", w["autogluon"],
-            "--num_classes", "2",
-            "--class_names", "0", "1",
-            "--label_json", label,
-            "--label_field", field,
-            "--radiomics_params", CONFIG["pretrained"]["radiomics_params"],
-            "--output", _out("binary", "autogluon", "predictions.csv"),
-            "--eval_output", _out("binary", "autogluon", "metrics.log"),
-            "--n_bootstrap", nb,
-        ]))
+    # autogluon
+    _cls_mask_dir = _resolve(os.path.join(
+        CONFIG["output_root"], "gland", "dinov3_unet", "masks"
+    )) if CONFIG.get("use_dino_mask_for_cls", False) else CONFIG["datasets"]["binary_masks"]
+    cmds.append(("autogluon", [
+        sys.executable, str(ROOT / "infer_autogluon" / "infer.py"),
+        "--image_dir", img,
+        "--mask_dir", _cls_mask_dir,
+        "--model_dir", w["autogluon"],
+        "--num_classes", "2",
+        "--class_names", "0", "1",
+        "--label_json", label,
+        "--label_field", field,
+        "--radiomics_params", CONFIG["pretrained"]["radiomics_params"],
+        "--output", _out("binary", "autogluon", "predictions.csv"),
+        "--eval_output", _out("binary", "autogluon", "metrics.log"),
+        "--n_bootstrap", nb,
+    ]))
 
     return cmds
 
@@ -475,19 +470,18 @@ def _cls_tirads():
             "--n_bootstrap", nb,
         ]))
 
-    # ultrafedfm (classify) — 预训练模式跳过
-    if MODE != "pretrained":
-        cmds.append(("ultrafedfm", [
-            sys.executable, str(ROOT / "infer_ultrafedfm" / "classify.py"),
-            "--data_path", img,
-            "--resume", w["ultrafedfm"],
-            "--nb_classes", "5",
-            "--label_file", label,
-            "--label_field", field,
-            "--output_csv", _out("tirads", "ultrafedfm", "predictions.csv"),
-            "--output_log", _out("tirads", "ultrafedfm", "metrics.log"),
-            "--n_bootstrap", nb,
-        ]))
+    # ultrafedfm (classify)
+    cmds.append(("ultrafedfm", [
+        sys.executable, str(ROOT / "infer_ultrafedfm" / "classify.py"),
+        "--data_path", img,
+        "--resume", w["ultrafedfm"],
+        "--nb_classes", "5",
+        "--label_file", label,
+        "--label_field", field,
+        "--output_csv", _out("tirads", "ultrafedfm", "predictions.csv"),
+        "--output_log", _out("tirads", "ultrafedfm", "metrics.log"),
+        "--n_bootstrap", nb,
+    ]))
 
     # dinov3_unet_multitask
     cmds.append(("dinov3_unet_multitask", [
@@ -502,25 +496,24 @@ def _cls_tirads():
         "--n_boot", nb,
     ]))
 
-    # autogluon — 预训练模式跳过（无零样本推理）
-    if MODE != "pretrained":
-        _cls_mask_dir = _resolve(os.path.join(
-            CONFIG["output_root"], "gland", "dinov3_unet", "masks"
-        )) if CONFIG.get("use_dino_mask_for_cls", False) else CONFIG["datasets"]["tirads_masks"]
-        cmds.append(("autogluon", [
-            sys.executable, str(ROOT / "infer_autogluon" / "infer.py"),
-            "--image_dir", img,
-            "--mask_dir", _cls_mask_dir,
-            "--model_dir", w["autogluon"],
-            "--num_classes", "5",
-            "--class_names", "1", "2", "3", "4", "5",
-            "--label_json", label,
-            "--label_field", field,
-            "--radiomics_params", CONFIG["pretrained"]["radiomics_params"],
-            "--output", _out("tirads", "autogluon", "predictions.csv"),
-            "--eval_output", _out("tirads", "autogluon", "metrics.log"),
-            "--n_bootstrap", nb,
-        ]))
+    # autogluon
+    _cls_mask_dir = _resolve(os.path.join(
+        CONFIG["output_root"], "gland", "dinov3_unet", "masks"
+    )) if CONFIG.get("use_dino_mask_for_cls", False) else CONFIG["datasets"]["tirads_masks"]
+    cmds.append(("autogluon", [
+        sys.executable, str(ROOT / "infer_autogluon" / "infer.py"),
+        "--image_dir", img,
+        "--mask_dir", _cls_mask_dir,
+        "--model_dir", w["autogluon"],
+        "--num_classes", "5",
+        "--class_names", "1", "2", "3", "4", "5",
+        "--label_json", label,
+        "--label_field", field,
+        "--radiomics_params", CONFIG["pretrained"]["radiomics_params"],
+        "--output", _out("tirads", "autogluon", "predictions.csv"),
+        "--eval_output", _out("tirads", "autogluon", "metrics.log"),
+        "--n_bootstrap", nb,
+    ]))
 
     return cmds
 
@@ -791,7 +784,11 @@ def main():
     MODE = args.mode
     if MODE == "pretrained":
         CONFIG["output_root"] = CONFIG["output_root"] + "_pretrained"
-        print(f"  [预训练模式] 跳过模型: {', '.join(sorted(_PRETRAINED_SKIP_MODELS))}")
+        _skip = sorted(_PRETRAINED_SKIP_MODELS)
+        if _skip:
+            print(f"  [预训练模式] 跳过模型: {', '.join(_skip)}")
+        else:
+            print(f"  [预训练模式] 全部模型运行（不跳过）")
         print(f"  [预训练模式] 输出目录: {CONFIG['output_root']}")
 
     if CONFIG.get("use_dino_mask_for_cls", False):

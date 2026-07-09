@@ -35,7 +35,7 @@ huggingface-hub>=0.24.0
 
 # --- 预训练模型加载 ---
 open_clip_torch>=2.24.0        # infer_biomedclip
-transformers>=4.45.0           # infer_medsiglip
+transformers>=4.45.0,<4.51    # infer_medsiglip/infer_biomedclip (<4.51 规避 CVE-2025-32434 torch.load 强制检查)
 
 # --- 配置管理 ---
 hydra-core>=1.3.0              # infer_medsam2
