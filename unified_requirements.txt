@@ -12,15 +12,18 @@
 #   2. 安装其余依赖:
 #      pip install -r unified_requirements.txt
 #
+#   3. pyradiomics 需从源码编译，加 --no-build-isolation:
+#      pip install --no-build-isolation "pyradiomics>=3.0.1,<3.1"
+#
 # ------------------------------------------------------------
 
 # --- 图像处理 ---
 Pillow>=9.0.0
-opencv-python-headless>=4.5.0
-albumentations>=1.4.0          # >=1.4.0 以兼容 numpy 2.x
+opencv-python-headless>=4.5.0,<5  # <5: opencv 5.x 要求 numpy>=2，与 pyradiomics 冲突
+albumentations>=1.4.0
 
 # --- 科学计算 ---
-numpy>=1.24.0
+numpy>=1.24.0,<2                  # <2: pyradiomics 3.0.1 不兼容 numpy 2.x C API
 scipy>=1.10.0
 pandas>=2.0.0
 scikit-learn>=1.2.0
@@ -38,7 +41,6 @@ open_clip_torch>=2.24.0        # infer_biomedclip
 transformers>=4.45.0,<4.51    # infer_medsiglip/infer_biomedclip (<4.51 规避 CVE-2025-32434 torch.load 强制检查)
 sentencepiece>=0.1.99         # infer_medsiglip (SiglipTokenizer)
 protobuf>=3.20.0              # infer_medsiglip (SiglipTokenizer 解析 spiece.model)
-sentencepiece>=0.1.99          # infer_medsiglip (SiglipTokenizer 依赖)
 
 # --- 配置管理 ---
 hydra-core>=1.3.0              # infer_medsam2
@@ -54,7 +56,7 @@ medpy>=0.5.2                   # infer_transunet (PyPI 最新为 0.5.2，支持 
 # autogluon 完整安装约 2-3GB，推理只需 tabular 子包
 # 如 predictor 训练时用了 xgboost/catboost 等后端，改为 autogluon.tabular（完整表格版）
 autogluon.tabular[light]>=1.0  # 轻量版（仅 lightgbm），推理足够
-pyradiomics>=3.0.1,<3.1   # 3.1.0 sdist metadata 有 bug，3.0.1 最后稳定版
+pyradiomics>=3.0.1,<3.1       # 3.1.0 sdist metadata 有 bug；需 --no-build-isolation 安装
 SimpleITK>=2.3
 openpyxl>=3.0                  # (可选) Excel 支持
 
