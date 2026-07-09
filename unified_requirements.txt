@@ -36,6 +36,8 @@ huggingface-hub>=0.24.0
 # --- 预训练模型加载 ---
 open_clip_torch>=2.24.0        # infer_biomedclip
 transformers>=4.45.0,<4.51    # infer_medsiglip/infer_biomedclip (<4.51 规避 CVE-2025-32434 torch.load 强制检查)
+sentencepiece>=0.1.99         # infer_medsiglip (SiglipTokenizer)
+protobuf>=3.20.0              # infer_medsiglip (SiglipTokenizer 解析 spiece.model)
 sentencepiece>=0.1.99          # infer_medsiglip (SiglipTokenizer 依赖)
 
 # --- 配置管理 ---
