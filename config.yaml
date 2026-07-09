@@ -11,20 +11,20 @@
 
 # --- 数据集路径 ---
 datasets:
-  gland_images:  ./datasets/TGVideo_PNG/test/image
-  gland_masks:   ./datasets/TGVideo_PNG/test/mask
+  gland_images:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TGVideo_PNG/sample/images
+  gland_masks:   /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TGVideo_PNG/sample/masks
   nodule_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/images
   nodule_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/masks
   binary_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/images
   binary_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/masks
-  tirads_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/valid/images
-  tirads_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/valid/masks
+  tirads_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/images
+  tirads_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/masks
 
 # --- 标签文件 ---
 labels:
   binary_json:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/sample_test_label.json
   binary_field: malignancy
-  tirads_json:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/valid/Cine-Clip_valid_label.json
+  tirads_json:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/Cine-Clip_sample_label.json
   tirads_field: tirads
 
 # --- 模型权重 ---
@@ -59,7 +59,7 @@ weights:
     medsiglip:             ./infer_medsiglip/checkpoints/TIRADS_5cls/best_model.pt
     ultrafedfm:            ./infer_ultrafedfm/checkpoints/checkpoint-best_auroc.pth
     dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/TIRADS_5cls/dino_unet_train_TIRADS_Cine-Clip_epoch_50.pth
-    autogluon:             ./infer_autogluon/checkpoints/tirads
+    autogluon:             ./infer_autogluon/checkpoints/binary
 
 # --- 预训练骨干模型目录 ---
 pretrained:
