@@ -769,7 +769,7 @@ def main():
     )
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH),
                         help=f"配置文件路径（默认: {DEFAULT_CONFIG_PATH}）")
-    parser.add_argument("--mode", choices=["finetune", "pretrained"], default="finetune",
+    parser.add_argument("--mode", choices=["finetune", "pretrained"], default="pretrained",
                         help="推理模式: finetune（默认，使用微调权重）/ "
                              "pretrained（使用预训练权重，跳过 transunet/ultrafedfm）")
     parser.add_argument("--tasks", nargs="+", default=list(TASKS.keys()),

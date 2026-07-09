@@ -92,7 +92,7 @@ save_masks: false
 # 是否使用 dinov3_unet 腺体分割掩码作为分类任务的 mask
 # 开启时自动开启 save_masks，autogluon 使用 dinov3_unet 输出的腺体掩码
 # 注意：要求 gland 图像与分类图像为同一数据集（pipeline 场景下自动满足）
-use_dino_mask_for_cls: false
+use_dino_mask_for_cls: true
 
 # --- 预处理参数 (pipeline.py 使用) ---
 prepare:
