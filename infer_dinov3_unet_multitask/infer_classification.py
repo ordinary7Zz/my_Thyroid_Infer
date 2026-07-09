@@ -316,20 +316,31 @@ def run_inference(model, loader, device, num_classes):
     return results
 
 
-def save_csv(results, output_path, has_labels):
+def save_csv(results, output_path, has_labels, num_classes):
     """保存结果到 CSV。"""
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
 
+    fieldnames = ['filename', 'predicted_class', 'confidence']
+    for c in range(num_classes):
+        fieldnames.append(f'prob_{c}')
     if has_labels:
-        fieldnames = ['filename', 'predicted_class', 'confidence', 'true_label']
-    else:
-        fieldnames = ['filename', 'predicted_class', 'confidence']
+        fieldnames.append('true_label')
 
     with open(output_path, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for r in results:
-            row = {k: r[k] for k in fieldnames}
+            row = {k: r[k] for k in ['filename', 'predicted_class', 'confidence']}
+            if num_classes == 2:
+                prob_1 = r.get('_prob_1', 0.0)
+                row['prob_0'] = round(1.0 - prob_1, 6)
+                row['prob_1'] = round(prob_1, 6)
+            else:
+                probs = r.get('_probs', [0.0] * num_classes)
+                for c in range(num_classes):
+                    row[f'prob_{c}'] = round(float(probs[c]), 6)
+            if has_labels:
+                row['true_label'] = r.get('true_label', '')
             writer.writerow(row)
 
 
@@ -447,7 +458,7 @@ def main(args):
 
     # ---------- 保存 CSV ----------
     has_labels = label_mapping is not None
-    save_csv(results, args.output, has_labels)
+    save_csv(results, args.output, has_labels, args.num_classes)
 
     # ---------- 计算并保存指标 ----------
     if label_mapping is not None:

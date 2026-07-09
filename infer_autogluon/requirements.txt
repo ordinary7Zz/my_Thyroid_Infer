@@ -1,0 +1,10 @@
+# AutoGluon 分类推理依赖
+# 基础依赖（与 unified_requirements.txt 共享）:
+#   numpy, pandas, scikit-learn, pillow, tqdm
+#
+# 特有依赖:
+autogluon>=1.0
+pyradiomics>=3.1
+SimpleITK>=2.3
+PyYAML>=6.0
+openpyxl>=3.0       # (可选) Excel 支持

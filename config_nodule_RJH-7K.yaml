@@ -16,7 +16,9 @@ datasets:
   nodule_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/augtrain_PNG/image
   nodule_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/augtrain_PNG/mask
   binary_images: ./datasets/TN3K/test/images
+  binary_masks:  ./datasets/TN3K/test/masks
   tirads_images: ./datasets/Cine-Clip/test/images
+  tirads_masks:  ./datasets/Cine-Clip/test/masks
 
 # --- 标签文件 ---
 labels:
@@ -49,6 +51,7 @@ weights:
     medsiglip:             ./infer_medsiglip/checkpoints/BM_2cls/best_model.pt
     ultrafedfm:            ./infer_ultrafedfm/checkpoints/BM_2cls/checkpoint-best_acc.pth
     dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/BM_2cls/dino_unet_gamtl_train_multitask_dataset_3_epoch_50.pth
+    autogluon:             ./infer_autogluon/checkpoints/binary
 
   # 分类 — TIRADS 五分类
   tirads:
@@ -56,6 +59,7 @@ weights:
     medsiglip:             ./infer_medsiglip/checkpoints/TIRADS_5cls/best_model.pt
     ultrafedfm:            ./infer_ultrafedfm/checkpoints/TIRADS_5cls/checkpoint-best_acc.pth
     dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/TIRADS_5cls/dino_unet_train_TIRADS_Cine-Clip_epoch_50.pth
+    autogluon:             ./infer_autogluon/checkpoints/tirads
 
 # --- 预训练骨干模型目录 ---
 pretrained:
@@ -63,6 +67,7 @@ pretrained:
   medsiglip_dir:   ./infer_medsiglip/pretrained_models/medsiglip-448
   medsegx_sam_dir: ./infer_medsegx/pretrained_models/SAM
   medsam2_config:  ./infer_medsam2/sam2/configs/sam2.1_hiera_t512.yaml
+  radiomics_params: ./infer_autogluon/radiomics_2d.yaml
 
 # --- 输出根目录 ---
 output_root: ./results/nodule_one_dataset

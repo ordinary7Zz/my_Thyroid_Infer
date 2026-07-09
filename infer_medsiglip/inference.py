@@ -196,6 +196,9 @@ def process_batch(model, device, tensors, paths, num_classes,
             "predicted_class": pred_name,
             "confidence": round(confidence, 6),
         }
+        for j, cname in enumerate(class_names):
+            if j < len(probs_all[i]):
+                row[f"prob_{cname}"] = round(float(probs_all[i][j]), 6)
 
         true_idx = None
         if label_map is not None:
@@ -333,6 +336,8 @@ def main():
     # ---- 保存 CSV ----
     df = pd.DataFrame(all_rows)
     cols = ["filename", "predicted_class", "confidence"]
+    for cname in class_names:
+        cols.append(f"prob_{cname}")
     if label_map is not None:
         cols.append("true_label")
     df = df[[c for c in cols if c in df.columns]]
@@ -386,6 +391,8 @@ def main():
                 )
             df = pd.DataFrame(all_rows)
             cols = ["filename", "predicted_class", "confidence"]
+            for cname in class_names:
+                cols.append(f"prob_{cname}")
             if label_map is not None:
                 cols.append("true_label")
             df = df[[c for c in cols if c in df.columns]]

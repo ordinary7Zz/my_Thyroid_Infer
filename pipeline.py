@@ -147,7 +147,7 @@ def run_prepare_data(input_dir, processed_dir, checkpoint, skip_roi, dry_run):
 # Step 2: 生成新配置文件
 # ============================================================================
 
-def generate_config(base_config_path, processed_dir, output_path):
+def generate_config(base_config_path, processed_dir, output_path, use_dino_mask=False):
     """基于基础 config.yaml 生成新配置，将数据路径指向 processed/ 目录。
 
     修改的字段:
@@ -187,6 +187,9 @@ def generate_config(base_config_path, processed_dir, output_path):
     cfg["labels"]["tirads_json"] = f"./{rel_processed}/labels.json"
     cfg["labels"]["binary_field"] = "malignancy"
     cfg["labels"]["tirads_field"]  = "tirads"
+
+    if use_dino_mask:
+        cfg["use_dino_mask_for_cls"] = True
 
     with open(output_path, "w", encoding="utf-8") as f:
         yaml.dump(cfg, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
@@ -320,6 +323,10 @@ def main():
         "--dry_run", action="store_true",
         help="只打印命令不执行",
     )
+    parser.add_argument(
+        "--use_dino_mask", action="store_true",
+        help="使用 dinov3_unet 腺体掩码作为分类任务的 mask（自动开启 save_masks）",
+    )
     args = parser.parse_args()
 
     # 从 config.yaml 读取 prepare 段作为默认值
@@ -344,6 +351,8 @@ def main():
     if args.models:
         print(f"  模型筛选:   {', '.join(args.models)}")
     print(f"  Dry run:    {args.dry_run}")
+    if args.use_dino_mask:
+        print(f"  DINO掩码:   开启（autogluon 使用 dinov3_unet 腺体掩码）")
     print("=" * 70)
 
     # ---- Step 1: 数据预处理 ----
@@ -366,7 +375,7 @@ def main():
 
     # 配置生成只是写文件，dry_run 也执行，以便后续 run_all 能加载
     new_config_path.parent.mkdir(parents=True, exist_ok=True)
-    generate_config(args.base_config, processed_dir, new_config_path)
+    generate_config(args.base_config, processed_dir, new_config_path, args.use_dino_mask)
 
     # ---- Step 3: 运行推理 ----
     ok = run_inference(new_config_path, args.tasks, args.models, args.dry_run)

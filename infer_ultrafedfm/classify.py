@@ -265,9 +265,9 @@ def main():
         true_labels = load_labels(args.label_file, args.label_field, image_names, args.nb_classes)
 
     # --- save CSV ---
-    header = ['image_name', 'predicted_class', 'confidence']
+    header = ['filename', 'predicted_class', 'confidence']
     for c in range(args.nb_classes):
-        header.append('prob_class_{}'.format(c))
+        header.append('prob_{}'.format(c))
     if true_labels is not None:
         header.append('true_label')
 

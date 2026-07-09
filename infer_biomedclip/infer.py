@@ -383,14 +383,16 @@ def batch_infer(model: BiomedCLIPClassifier, img_paths: list,
 
 
 def save_csv(output_path: str, filenames: list, all_probs: np.ndarray,
-             class_names: list):
+             class_names: list, label_map: dict = None):
     """保存分类结果到 CSV"""
     out_dir = os.path.dirname(os.path.abspath(output_path))
     os.makedirs(out_dir, exist_ok=True)
 
-    fieldnames = ["filename", "predict_label", "predict_confidence"]
+    fieldnames = ["filename", "predicted_class", "confidence"]
     for cname in class_names:
         fieldnames.append(f"prob_{cname}")
+    if label_map is not None:
+        fieldnames.append("true_label")
 
     rows = []
     for fname, probs in zip(filenames, all_probs):
@@ -400,11 +402,18 @@ def save_csv(output_path: str, filenames: list, all_probs: np.ndarray,
 
         row = {
             "filename": fname,
-            "predict_label": pred_name,
-            "predict_confidence": round(pred_conf, 6),
+            "predicted_class": pred_name,
+            "confidence": round(pred_conf, 6),
         }
         for i, cname in enumerate(class_names):
             row[f"prob_{cname}"] = round(float(probs[i]), 6)
+        if label_map is not None:
+            true_idx = label_map.get(fname)
+            row["true_label"] = (
+                class_names[true_idx]
+                if true_idx is not None and 0 <= true_idx < len(class_names)
+                else ""
+            )
         rows.append(row)
 
     with open(output_path, "w", newline="", encoding="utf-8") as f:
@@ -542,13 +551,16 @@ def main():
     all_probs = batch_infer(model, img_paths, preprocess, device,
                             args.batch_size)
 
-    # 保存 CSV
-    save_csv(args.output, filenames, all_probs, args.class_names)
-
-    # 可选：性能评估（含 CI95）
+    # 加载标签（可选，用于 CSV true_label 列和评估）
+    label_map = None
     if args.label_json:
         label_map = load_label_json(args.label_json, args.label_field, args.class_names)
 
+    # 保存 CSV
+    save_csv(args.output, filenames, all_probs, args.class_names, label_map)
+
+    # 可选：性能评估（含 CI95）
+    if args.label_json:
         # 确定评估结果保存路径
         if args.eval_output:
             eval_output = args.eval_output

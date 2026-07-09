@@ -16,7 +16,9 @@ datasets:
   nodule_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/images
   nodule_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/masks
   binary_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/images
+  binary_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/masks
   tirads_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/valid/images
+  tirads_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/valid/masks
 
 # --- 标签文件 ---
 labels:
@@ -33,7 +35,7 @@ weights:
     medsam2:     ./infer_medsam2/checkpoints/TGVideo/checkpoint_10.pt
     medsegx:     ./infer_medsegx/checkpoints/TGVideo/checkpoint_epoch_29.pth
     transunet:   ./infer_transunet/checkpoints/TGVideo/epoch_49.pth
-    ultrafedfm:  ./infer_ultrafedfm/checkpoints/TGVideo/epoch_bestDice.pth
+    ultrafedfm:  ./infer_ultrafedfm/checkpoints/epoch_bestDice.pth
 
   # 分割 — 结节
   nodule:
@@ -41,21 +43,23 @@ weights:
     medsam2:     ./infer_medsam2/checkpoints/Nodule/checkpoint_15.pt
     medsegx:     ./infer_medsegx/checkpoints/Nodule/model_best.pth
     transunet:   ./infer_transunet/checkpoints/Nodule/epoch_49.pth
-    ultrafedfm:  ./infer_ultrafedfm/checkpoints/Nodule/epoch_bestDice.pth
+    ultrafedfm:  ./infer_ultrafedfm/checkpoints/epoch_bestDice.pth
 
   # 分类 — 良恶性二分类
   binary:
     biomedclip:            ./infer_biomedclip/checkpoints/BM_2cls/best_model.pth
     medsiglip:             ./infer_medsiglip/checkpoints/BM_2cls/best_model.pt
-    ultrafedfm:            ./infer_ultrafedfm/checkpoints/BM_2cls/checkpoint-best_acc.pth
+    ultrafedfm:            ./infer_ultrafedfm/checkpoints/checkpoint-best_auroc.pth
     dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/BM_2cls/dino_unet_gamtl_train_multitask_dataset_3_epoch_50.pth
+    autogluon:             ./infer_autogluon/checkpoints/binary
 
   # 分类 — TIRADS 五分类
   tirads:
     biomedclip:            ./infer_biomedclip/checkpoints/TIRADS_5cls/best_model.pth
     medsiglip:             ./infer_medsiglip/checkpoints/TIRADS_5cls/best_model.pt
-    ultrafedfm:            ./infer_ultrafedfm/checkpoints/TIRADS_5cls/checkpoint-best_acc.pth
+    ultrafedfm:            ./infer_ultrafedfm/checkpoints/checkpoint-best_auroc.pth
     dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/TIRADS_5cls/dino_unet_train_TIRADS_Cine-Clip_epoch_50.pth
+    autogluon:             ./infer_autogluon/checkpoints/tirads
 
 # --- 预训练骨干模型目录 ---
 pretrained:
@@ -63,6 +67,20 @@ pretrained:
   medsiglip_dir:   ./infer_medsiglip/pretrained_models/medsiglip-448
   medsegx_sam_dir: ./infer_medsegx/pretrained_models/SAM
   medsam2_config:  ./infer_medsam2/sam2/configs/sam2.1_hiera_t512.yaml
+  radiomics_params: ./infer_autogluon/radiomics_2d.yaml
+
+# --- 预训练模式权重（--mode pretrained 时使用）---
+# medsam2/medsegx 在预训练模式下使用此处的权重（替换 finetune 权重）
+# biomedclip/medsiglip 走零样本推理，复用上方 pretrained 段的模型目录
+# transunet/ultrafedfm 在预训练模式下跳过（分割/分类头未训练，输出无意义）
+# dinov3_unet/dinov3_unet_multitask 始终使用 finetune 权重
+pretrained_weights:
+  gland:
+    medsam2: ./infer_medsam2/checkpoints/MedSAM2_latest.pt
+    medsegx: ./infer_medsegx/checkpoints/medsegx_vit_b.pth
+  nodule:
+    medsam2: ./infer_medsam2/checkpoints/MedSAM2_latest.pt
+    medsegx: ./infer_medsegx/checkpoints/medsegx_vit_b.pth
 
 # --- 输出根目录 ---
 output_root: ./results
@@ -70,6 +88,11 @@ output_root: ./results
 # --- 输出选项 ---
 # 分割任务是否保存预测掩码到 results/<task>/<model>/masks/
 save_masks: false
+
+# 是否使用 dinov3_unet 腺体分割掩码作为分类任务的 mask
+# 开启时自动开启 save_masks，autogluon 使用 dinov3_unet 输出的腺体掩码
+# 注意：要求 gland 图像与分类图像为同一数据集（pipeline 场景下自动满足）
+use_dino_mask_for_cls: false
 
 # --- 预处理参数 (pipeline.py 使用) ---
 prepare:
