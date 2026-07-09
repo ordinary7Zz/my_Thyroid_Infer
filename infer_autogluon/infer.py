@@ -271,7 +271,7 @@ def load_predictor(model_dir: str):
             f"请确认 --model_dir 指向 AutoGluon TabularPredictor 输出目录"
         )
 
-    predictor = TabularPredictor.load(model_dir)
+    predictor = TabularPredictor.load(model_dir, require_version_match=False)
     print(f"  模型类型:     {predictor.problem_type}")
     print(f"  类别标签:     {predictor.class_labels}")
     print(f"  评估指标:     {predictor.eval_metric.name}")
