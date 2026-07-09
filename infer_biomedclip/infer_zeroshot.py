@@ -40,6 +40,10 @@ import argparse
 import warnings
 from datetime import datetime
 
+# 强制 transformers / huggingface_hub 离线模式，避免构建文本塔时连 HF
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -114,6 +118,11 @@ def load_biomedclip_model(model_dir: str, device: torch.device):
     vision_cfg = model_cfg["vision_cfg"]
     text_cfg = model_cfg["text_cfg"]
     context_length = text_cfg.get("context_length", 256)
+
+    # 将 HF 模型名指向本地 model_dir（含 BiomedBERT config.json），
+    # 并关闭 pretrained 标志：只用 from_config 建架构，权重从 .bin 加载
+    text_cfg["hf_model_name"] = model_dir
+    text_cfg["hf_model_pretrained"] = False
 
     # 查找本地权重文件
     weights_path = None

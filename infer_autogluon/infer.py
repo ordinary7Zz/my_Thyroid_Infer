@@ -645,8 +645,9 @@ def main():
         skip_fail=not args.no_skip_fail,
     )
     print(f"  成功提取特征: {len(features_df)} 个样本")
-    print(f"  特征维度:     {len([c for c in features_df.columns "
-          f"if c not in ('filename', 'image_path', 'mask_path')])}")
+    _feat_cols = [c for c in features_df.columns
+                  if c not in ('filename', 'image_path', 'mask_path')]
+    print(f"  特征维度:     {len(_feat_cols)}")
 
     # ================================================================
     # Step 3: 推理

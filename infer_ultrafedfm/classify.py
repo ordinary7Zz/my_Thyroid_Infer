@@ -92,9 +92,29 @@ def build_eval_transform(input_size):
 # Model loading
 # ---------------------------------------------------------------------------
 def load_model_from_checkpoint(model, resume_path, nb_classes):
-    checkpoint = torch.load(resume_path, map_location='cpu')
+    checkpoint = torch.load(resume_path, map_location='cpu', weights_only=False)
     checkpoint_model = checkpoint['model'] if isinstance(checkpoint, dict) and 'model' in checkpoint else checkpoint
-    model.load_state_dict(checkpoint_model, strict=True)
+
+    # 过滤掉形状不匹配的参数（如 head 层类别数不一致）
+    model_state_dict = model.state_dict()
+    filtered = {}
+    skipped = []
+    for k, v in checkpoint_model.items():
+        if k in model_state_dict and v.shape != model_state_dict[k].shape:
+            skipped.append((k, list(v.shape), list(model_state_dict[k].shape)))
+        else:
+            filtered[k] = v
+
+    if skipped:
+        print("跳过形状不匹配的参数:")
+        for k, old_shape, new_shape in skipped:
+            print(f"  {k}: checkpoint {old_shape} -> model {new_shape}")
+
+    missing, unexpected = model.load_state_dict(filtered, strict=False)
+    if missing:
+        print(f"缺失的参数: {missing}")
+    if unexpected:
+        print(f"多余的参数: {unexpected}")
     print('Loaded checkpoint from {}'.format(resume_path))
 
 
