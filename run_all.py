@@ -713,6 +713,8 @@ def preflight_check(tasks, models_filter=None):
                 continue
 
             # 权重检查（根据模式区分）
+            # autogluon 的权重是目录（含 predictor.pkl），其余模型是文件
+            _weight_check = _check_dir if model_name == "autogluon" else _check_file
             if MODE == "pretrained":
                 if model_name in ("medsam2", "medsegx"):
                     pt_wt = CONFIG.get("pretrained_weights", {})
@@ -722,9 +724,9 @@ def preflight_check(tasks, models_filter=None):
                 elif model_name in ("biomedclip", "medsiglip"):
                     pass  # 零样本模式: 不需要 finetune 权重
                 else:
-                    _check_file(weight_path, f"{task_id}/weights.{model_name}")
+                    _weight_check(weight_path, f"{task_id}/weights.{model_name}")
             else:
-                _check_file(weight_path, f"{task_id}/weights.{model_name}")
+                _weight_check(weight_path, f"{task_id}/weights.{model_name}")
 
             for pt_key, pt_type in _MODEL_PRETRAINED_DEPS.get(model_name, []):
                 desc = f"{task_id}/pretrained.{pt_key} ({model_name})"
