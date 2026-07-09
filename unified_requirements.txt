@@ -54,7 +54,7 @@ medpy>=0.5.2                   # infer_transunet (PyPI 最新为 0.5.2，支持 
 # autogluon 完整安装约 2-3GB，推理只需 tabular 子包
 # 如 predictor 训练时用了 xgboost/catboost 等后端，改为 autogluon.tabular（完整表格版）
 autogluon.tabular[light]>=1.0  # 轻量版（仅 lightgbm），推理足够
-pyradiomics>=3.1
+pyradiomics>=3.0.1,<3.1   # 3.1.0 sdist metadata 有 bug，3.0.1 最后稳定版
 SimpleITK>=2.3
 openpyxl>=3.0                  # (可选) Excel 支持
 

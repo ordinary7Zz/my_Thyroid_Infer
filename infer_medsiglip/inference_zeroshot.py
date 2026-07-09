@@ -137,6 +137,7 @@ def encode_text_prompts(model, tokenizer, prompts, max_seq_length, device):
         truncation=True,
         max_length=max_seq_length,
         return_tensors="pt",
+        return_attention_mask=True,
     )
     input_ids = tokens["input_ids"].to(device)
     attention_mask = tokens["attention_mask"].to(device)
