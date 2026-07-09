@@ -47,5 +47,13 @@ PyYAML>=6.0                    # run_all.py (config.yaml)
 # --- 医学图像评估 ---
 medpy>=0.5.2                   # infer_transunet (PyPI 最新为 0.5.2，支持 Python 3.11)
 
+# --- AutoGluon 分类 (infer_autogluon) ---
+# autogluon 完整安装约 2-3GB，推理只需 tabular 子包
+# 如 predictor 训练时用了 xgboost/catboost 等后端，改为 autogluon.tabular（完整表格版）
+autogluon.tabular[light]>=1.0  # 轻量版（仅 lightgbm），推理足够
+pyradiomics>=3.1
+SimpleITK>=2.3
+openpyxl>=3.0                  # (可选) Excel 支持
+
 # --- 工具 ---
 tqdm>=4.64.0
