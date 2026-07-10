@@ -166,6 +166,27 @@ def _add_mask_output(task_id, cmds):
     return result
 
 
+def _resolve_cls_mask_dir(default_masks):
+    """解析分类任务（autogluon）使用的 mask 目录。
+
+    CONFIG['use_dino_mask_for_cls'] 支持三种取值:
+      - false / 未设置: 使用数据集自带 mask (default_masks)
+      - true:           使用 gland/dinov3_unet 掩码 (向后兼容)
+      - "<task>/<model>": 使用 results/<task>/<model>/masks，
+                         如 "nodule/dinov3_unet"、"gland/medsam2"
+    """
+    val = CONFIG.get("use_dino_mask_for_cls", False)
+    if val is True:
+        task, model = "gland", "dinov3_unet"
+    elif isinstance(val, str) and val:
+        parts = val.split("/")
+        task = parts[0]
+        model = parts[1] if len(parts) > 1 else "dinov3_unet"
+    else:
+        return default_masks
+    return _resolve(os.path.join(CONFIG["output_root"], task, model, "masks"))
+
+
 # ---------- 分割：腺体 ----------
 
 def _seg_gland():
@@ -382,9 +403,7 @@ def _cls_binary():
     ]))
 
     # autogluon
-    _cls_mask_dir = _resolve(os.path.join(
-        CONFIG["output_root"], "gland", "dinov3_unet", "masks"
-    )) if CONFIG.get("use_dino_mask_for_cls", False) else CONFIG["datasets"]["binary_masks"]
+    _cls_mask_dir = _resolve_cls_mask_dir(CONFIG["datasets"]["binary_masks"])
     cmds.append(("autogluon", [
         sys.executable, str(ROOT / "infer_autogluon" / "infer.py"),
         "--image_dir", img,
@@ -497,9 +516,7 @@ def _cls_tirads():
     ]))
 
     # autogluon
-    _cls_mask_dir = _resolve(os.path.join(
-        CONFIG["output_root"], "gland", "dinov3_unet", "masks"
-    )) if CONFIG.get("use_dino_mask_for_cls", False) else CONFIG["datasets"]["tirads_masks"]
+    _cls_mask_dir = _resolve_cls_mask_dir(CONFIG["datasets"]["tirads_masks"])
     cmds.append(("autogluon", [
         sys.executable, str(ROOT / "infer_autogluon" / "infer.py"),
         "--image_dir", img,
@@ -791,9 +808,11 @@ def main():
             print(f"  [预训练模式] 全部模型运行（不跳过）")
         print(f"  [预训练模式] 输出目录: {CONFIG['output_root']}")
 
-    if CONFIG.get("use_dino_mask_for_cls", False):
+    _cls_mask_val = CONFIG.get("use_dino_mask_for_cls", False)
+    if _cls_mask_val:
         CONFIG["save_masks"] = True
-        print(f"  [DINO掩码模式] 自动开启 save_masks，autogluon 使用 dinov3_unet 腺体掩码")
+        _cls_mask_src = "gland/dinov3_unet" if _cls_mask_val is True else str(_cls_mask_val)
+        print(f"  [分割掩码模式] 自动开启 save_masks，autogluon 使用 {_cls_mask_src} 掩码")
 
     if args.list:
         print("可用任务和模型:\n")
