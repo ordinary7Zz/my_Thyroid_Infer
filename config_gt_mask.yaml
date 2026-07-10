@@ -52,7 +52,7 @@ weights:
     medsiglip:             ./infer_medsiglip/checkpoints/BM_2cls/best_model.pt
     ultrafedfm:            ./infer_ultrafedfm/checkpoints/checkpoint-best_auroc.pth
     dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/BM_2cls/dino_unet_gamtl_train_multitask_dataset_3_epoch_50.pth
-    autogluon:             ./infer_autogluon/checkpoints/binary
+    autogluon:             /mnt/wangbd8/workspace/ThyroidAgent/dino_unet_multitask/pyradiomics_train/autogluon_model/gtmask/dataset_3/autogluon_model_20260106_215755
 
   # 分类 — TIRADS 五分类
   tirads:
