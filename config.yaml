@@ -13,16 +13,16 @@
 datasets:
   gland_images:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TGVideo_PNG/sample/images
   gland_masks:   /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TGVideo_PNG/sample/masks
-  nodule_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/images
-  nodule_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/masks
-  binary_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/images
-  binary_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/masks
+  nodule_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/images
+  nodule_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/masks
+  binary_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/images
+  binary_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/masks
   tirads_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/images
   tirads_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/masks
 
 # --- 标签文件 ---
 labels:
-  binary_json:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/sample_test_label.json
+  binary_json:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/Cine-Clip_sample_label.json
   binary_field: malignancy
   tirads_json:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/Cine-Clip_sample_label.json
   tirads_field: tirads
