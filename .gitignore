@@ -63,5 +63,14 @@ checkpoints/
 .ipynb_checkpoints/
 
 datasets/
+checkpoints/
 
+# ====================
+# 数据 / 结果
+# ====================
+*.png
+*.jpg
+wheels/
+results/
+results_*/
 zips/
