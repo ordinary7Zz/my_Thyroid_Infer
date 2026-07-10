@@ -36,8 +36,8 @@
   # 关闭文件名匿名化（默认开启，将文件名最后一段替换为哈希以掩盖病人信息）
   python prepare_data.py --no_anonymize
 
-  # 保存 原名→匿名名 映射（含原始病人信息，默认不保存）
-  python prepare_data.py --save_name_mapping
+  # 不保存 原名→匿名名 映射（默认保存，便于回溯）
+  python prepare_data.py --no_save_name_mapping
 """
 
 import os
@@ -254,10 +254,10 @@ def main():
         help="关闭文件名匿名化（默认开启：将文件名最后一段替换为哈希以掩盖病人信息）",
     )
     parser.add_argument(
-        "--save_name_mapping",
+        "--no_save_name_mapping",
         action="store_true",
-        help="保存 原名→匿名名 的映射文件 name_mapping.json（默认不保存，"
-        "因其中包含原始病人信息）",
+        help="不保存 原名→匿名名 的映射文件 name_mapping.json（默认保存，"
+        "便于回溯；注意其中包含原始病人信息）",
     )
     args = parser.parse_args()
 
@@ -432,8 +432,8 @@ def main():
     with open(labels_path, "w", encoding="utf-8") as f:
         json.dump(labels, f, ensure_ascii=False, indent=4)
 
-    # 可选：保存 原名→匿名名 映射（含原始病人信息，默认不保存）
-    if anonymize and args.save_name_mapping:
+    # 保存 原名→匿名名 映射（默认保存，便于回溯；含原始病人信息）
+    if anonymize and not args.no_save_name_mapping:
         mapping_path = output_dir / "name_mapping.json"
         with open(mapping_path, "w", encoding="utf-8") as f:
             json.dump(name_map, f, ensure_ascii=False, indent=4)
