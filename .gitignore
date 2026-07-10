@@ -60,4 +60,10 @@ Thumbs.db
 .ipynb_checkpoints/
 
 datasets/
+checkpoints/
 
+*.png
+*.jpg
+wheels/
+results/
+results_*/
