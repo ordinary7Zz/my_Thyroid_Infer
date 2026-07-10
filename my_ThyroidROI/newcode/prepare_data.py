@@ -32,12 +32,19 @@
 
   # 跳过 ROI 提取，仅复制和标签处理
   python prepare_data.py --skip_roi
+
+  # 关闭文件名匿名化（默认开启，将文件名最后一段替换为哈希以掩盖病人信息）
+  python prepare_data.py --no_anonymize
+
+  # 保存 原名→匿名名 映射（含原始病人信息，默认不保存）
+  python prepare_data.py --save_name_mapping
 """
 
 import os
 import re
 import json
 import shutil
+import hashlib
 import argparse
 from pathlib import Path
 from configparser import ConfigParser
@@ -56,6 +63,28 @@ IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp"}
 # 后缀标识
 ORG_SUFFIX = "_ORG1"  # 腺体掩码
 ROI_SUFFIX = "_ROI1"  # 结节掩码
+
+
+# ========================= 文件名匿名化 =========================
+def anonymize_filename(stem: str, ext: str) -> str:
+    """
+    将文件名最后一段（最后一个 '_' 之后的部分）替换为基于原名的哈希，
+    以掩盖病人信息，同时保证不同图像文件名不重复。
+
+    例: THYB_S_AN01_ND000111_20206154032 → THYB_S_AN01_ND000111_a3f2b1c9d4e0
+
+    使用 SHA-256 前 12 位十六进制作为新后缀：
+      - 不可逆，无法还原原始时间戳/病人信息
+      - 确定性，同一原图多次运行结果一致
+      - 12 位十六进制 (48 bit) 碰撞概率极低
+    """
+    digest = hashlib.sha256(stem.encode("utf-8")).hexdigest()[:12]
+    if "_" in stem:
+        prefix = stem.rsplit("_", 1)[0]
+        new_stem = f"{prefix}_{digest}"
+    else:
+        new_stem = digest
+    return f"{new_stem}{ext}"
 
 
 # ========================= INI 解析 =========================
@@ -219,6 +248,17 @@ def main():
         default=str(OUTPUT_DIR),
         help="输出目录",
     )
+    parser.add_argument(
+        "--no_anonymize",
+        action="store_true",
+        help="关闭文件名匿名化（默认开启：将文件名最后一段替换为哈希以掩盖病人信息）",
+    )
+    parser.add_argument(
+        "--save_name_mapping",
+        action="store_true",
+        help="保存 原名→匿名名 的映射文件 name_mapping.json（默认不保存，"
+        "因其中包含原始病人信息）",
+    )
     args = parser.parse_args()
 
     input_dir = Path(args.input_dir)
@@ -246,6 +286,12 @@ def main():
         print("跳过 ROI 提取，仅复制图像和掩码")
         print("=" * 60)
 
+    anonymize = not args.no_anonymize
+    if anonymize:
+        print("文件名匿名化: 开启（将最后一段替换为哈希以掩盖病人信息）")
+    else:
+        print("文件名匿名化: 关闭")
+
     # 创建输出目录
     images_dir = output_dir / "images"
     gland_masks_dir = output_dir / "gland_masks"
@@ -271,6 +317,7 @@ def main():
     print()
 
     labels = []
+    name_map = {}  # 原始文件名 → 匿名化文件名（仅 anonymize 时填充）
     stats = {
         "total": 0,
         "roi_success": 0,
@@ -290,14 +337,21 @@ def main():
         ext = img_path.suffix
         stats["total"] += 1
 
-        # 对应的掩码和标签文件
+        # 对应的掩码和标签文件（输入侧，使用原始 stem 查找）
         org_path = input_dir / f"{stem}{ORG_SUFFIX}{ext}"
         roi_path = input_dir / f"{stem}{ROI_SUFFIX}{ext}"
         ini_path = input_dir / f"{stem}.ini"
 
-        out_image = images_dir / img_path.name
-        out_gland = gland_masks_dir / img_path.name
-        out_nodule = nodule_masks_dir / img_path.name
+        # 输出文件名：匿名化时将最后一段替换为哈希
+        if anonymize:
+            out_name = anonymize_filename(stem, ext)
+            name_map[img_path.name] = out_name
+        else:
+            out_name = img_path.name
+
+        out_image = images_dir / out_name
+        out_gland = gland_masks_dir / out_name
+        out_nodule = nodule_masks_dir / out_name
 
         # --- 处理原图 ---
         if use_roi:
@@ -368,23 +422,22 @@ def main():
             stats["missing_ini"].append(img_path.name)
 
         labels.append({
-            "filename": img_path.name,
+            "filename": out_name,
             "malignancy": malignancy,
             "tirads": tirads,
         })
-
-        m_str = str(malignancy) if malignancy != -1 else "N/A"
-        t_str = str(tirads) if tirads != -1 else "N/A"
-        roi_tag = "ROI" if (use_roi and crop_params is not None) else "copy"
-        print(
-            f"  [{stats['total']:3d}] {img_path.name}  "
-            f"({roi_tag})  malignancy={m_str}, tirads={t_str}"
-        )
 
     # 保存标签 JSON
     labels_path = output_dir / "labels.json"
     with open(labels_path, "w", encoding="utf-8") as f:
         json.dump(labels, f, ensure_ascii=False, indent=4)
+
+    # 可选：保存 原名→匿名名 映射（含原始病人信息，默认不保存）
+    if anonymize and args.save_name_mapping:
+        mapping_path = output_dir / "name_mapping.json"
+        with open(mapping_path, "w", encoding="utf-8") as f:
+            json.dump(name_map, f, ensure_ascii=False, indent=4)
+        print(f"  名称映射已保存: {mapping_path}")
 
     # ========================= 统计报告 =========================
     print(f"\n{'=' * 60}")
@@ -397,6 +450,8 @@ def main():
     print(f"  结节掩码:     {stats['has_nodule_mask']} / {stats['total']}")
     print(f"  良恶性标签:   {stats['has_malignancy']} / {stats['total']}")
     print(f"  TI-RADS标签:  {stats['has_tirads']} / {stats['total']}")
+    if anonymize:
+        print(f"  匿名化文件名: {len(name_map)} 个")
 
     if stats["missing_gland_mask"]:
         print(f"\n  缺失腺体掩码 ({len(stats['missing_gland_mask'])}):")
