@@ -1,0 +1,70 @@
+# ============================================================================
+# Segmentation Agent 配置
+# ============================================================================
+# 默认使用 local_gpt_oss（本地 GPT-OSS 模型，不调用外部 API）
+# 也可切换为 "llm" 使用云端 OpenAI 兼容 API（如阿里百炼 Qwen）
+# ============================================================================
+
+# --- LLM Agent 配置（当 agent.type = "llm" 时生效）---
+agent_llm:
+  api_key: null  # 建议使用环境变量 DASHSCOPE_API_KEY
+  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  model_name: "qwen2.5-32b-instruct"
+  temperature: 0.3
+  max_tokens: 1024
+
+# --- 本地 GPT-OSS 配置（当 agent.type = "local_gpt_oss" 时生效）---
+agent_local_llm:
+  # GPT-OSS-20B 模型路径（需提前下载）
+  model_path: "/root/private_data/hf_cache/models--openai--gpt-oss-20b/snapshots/6cee5e81ee83917806bbde320786a8fb61efebee/"
+  device_map: "auto"
+  torch_dtype: "bfloat16"
+  trust_remote_code: true
+  max_new_tokens: 1024
+
+# --- Agent 行为配置 ---
+agent:
+  type: "local_gpt_oss"  # "local_gpt_oss"（默认）或 "llm"
+  use_agent_selection: true  # false 时跳过 LLM，使用投票选择
+  max_retries: 3
+  include_disagreement_metrics_in_prompt: true
+  # 集成配置
+  ensemble:
+    enabled: false  # 是否启用 ensemble（当前模型不保存概率图，建议 false）
+    top_k: 1  # ensemble 模型数
+    method: "weighted_average"  # "weighted_average" / "equal_weight" / "geometric_mean"
+    threshold: 0.5
+
+# --- 原始数据集信息（用于设备匹配决策）---
+base_datasets_info:
+  TN3K:
+    main_devices: ["GE Logiq E9", "ARIETTA 850", "RESONA 70B", "Hitachi Aloka Arietta V70"]
+    centers:
+      - "Zhujiang Hospital, Southern Medical University"
+    years: [2016, 2020]
+  ThyroidXL:
+    main_devices: ["Hitachi Aloka Arietta V70"]
+    centers:
+      - "National Hospital of Endocrinology, Hanoi, Vietnam"
+    years: [2023, 2025]
+  TN5K:
+    main_devices: ["GE Logiq E9", "GE S7"]
+    probe_frequency_mhz: [5, 12]
+    Imaging mode: "B-mode Ultrasound (2D)"
+    centers:
+      - "National Cancer Center/Cancer Hospital, Chinese Academy of Medical Sciences and Peking Union Medical College"
+  DDTI:
+    main_devices: ["TOSHIBA Nemio 30, TOSHIBA Nemio MX"]
+    Probe frequency: "uniformly set to 12 MHz"
+    Imaging mode: "B-mode Ultrasound"
+    centers:
+      - "IDIME (Instituto de Diagnóstico Médico)"
+  PKTN:
+    main_devices: []
+    centers:
+      - "Department of Ultrasound, Peking University First Hospital"
+    years: [2019, 2022]
+  CineClip:
+    main_devices: []
+    centers:
+      - "Stanford University Medical Center"
