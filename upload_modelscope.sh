@@ -52,34 +52,76 @@ if ! ms whoami &>/dev/null 2>&1; then
 fi
 echo "  已登录: $(ms whoami 2>/dev/null)"
 
-# 3. Dry-run: 列出将上传的文件
+# 3. Dry-run: 智能分析上传内容
 if $DRY_RUN; then
     echo ""
-    echo "[Dry-run] 将上传的文件（排除 results/datasets/wheels/gptoss 后）:"
+    echo "[Dry-run] 上传文件分析"
     echo ""
-    # 列出文件，排除不需要的目录
-    find . \
-        -type d \( -name results -o -name 'results_*' -o -name datasets -o -name wheels \
-                   -o -name 'gptoss*' -o -name __pycache__ -o -name .git -o -name .codebuddy \
-                   -o -name zips \) -prune \
-        -o -type f \( -name '*.pyc' -o -name '*.pyo' -o -name '*.so' \
-                     -o -name '.DS_Store' -o -name '*.zip' \) -prune \
-        -o -type f -print | \
-        sort | \
-        while read -r f; do
-            size=$(du -h "$f" | cut -f1)
-            printf "  %8s  %s\n" "$size" "$f"
-        done
 
-    total=$(find . \
+    # 收集所有待上传文件（size_bytes \t path），只扫描一次
+    FILE_LIST=$(find . \
         -type d \( -name results -o -name 'results_*' -o -name datasets -o -name wheels \
                    -o -name 'gptoss*' -o -name __pycache__ -o -name .git -o -name .codebuddy \
                    -o -name zips \) -prune \
         -o -type f \( -name '*.pyc' -o -name '*.pyo' -o -name '*.so' \
                      -o -name '.DS_Store' -o -name '*.zip' \) -prune \
-        -o -type f -print | wc -l)
+        -o -type f -printf '%s\t%p\n')
+
+    # --- 目录大小汇总（按顶级目录分组，大小降序）---
+    echo "━━━ 目录大小汇总（按大小降序）━━━"
+    echo "$FILE_LIST" | awk -F'\t' '{
+        size = $1; path = $2
+        sub(/^\.\//, "", path)
+        n = split(path, parts, "/")
+        topdir = (n > 1) ? parts[1] "/" : path
+        dir_size[topdir] += size
+        dir_count[topdir]++
+        total_size += size
+        total_count++
+    }
+    END {
+        for (d in dir_size)
+            printf "%d\t%d\t%s\n", dir_size[d], dir_count[d], d
+        printf "%d\t%d\t__TOTAL__\n", total_size, total_count
+    }' | sort -t$'\t' -k1,1 -rn | while IFS=$'\t' read -r sz cnt dir; do
+        if [ "$dir" = "__TOTAL__" ]; then
+            printf "  %-8s  %5d files  ── TOTAL ──\n" "$(numfmt --to=iec "$sz")" "$cnt"
+        else
+            printf "  %-8s  %5d files  %s\n" "$(numfmt --to=iec "$sz")" "$cnt" "$dir"
+        fi
+    done
+
+    # --- 大文件 Top 20（≥ 10MB，按大小降序）---
     echo ""
-    echo "共 ${total} 个文件"
+    echo "━━━ 大文件 Top 20（≥ 10MB，按大小降序）━━━"
+    LARGE_COUNT=0
+    LARGE_SIZE=0
+    while IFS=$'\t' read -r sz path; do
+        if [ "$sz" -ge 10485760 ]; then
+            printf "  %-8s  %s\n" "$(numfmt --to=iec "$sz")" "$path"
+            LARGE_COUNT=$((LARGE_COUNT + 1))
+            LARGE_SIZE=$((LARGE_SIZE + sz))
+        fi
+    done < <(echo "$FILE_LIST" | sort -t$'\t' -k1,1 -rn | head -20)
+
+    if [ "$LARGE_COUNT" -eq 0 ]; then
+        echo "  （无 ≥ 10MB 的大文件）"
+    fi
+
+    # --- 全部大文件统计（含未展示的）---
+    ALL_LARGE=$(echo "$FILE_LIST" | awk -F'\t' '$1 >= 10485760 {c++; s+=$1} END {printf "%d\t%d", c, s}')
+    ALL_LARGE_COUNT=$(echo "$ALL_LARGE" | cut -f1)
+    ALL_LARGE_SIZE=$(echo "$ALL_LARGE" | cut -f2)
+
+    # --- 汇总 ---
+    TOTAL_COUNT=$(echo "$FILE_LIST" | wc -l)
+    TOTAL_SIZE=$(echo "$FILE_LIST" | awk -F'\t' '{s+=$1} END {print s}')
+
+    echo ""
+    echo "━━━ 汇总 ━━━"
+    printf "  总文件数:     %d\n" "$TOTAL_COUNT"
+    printf "  总大小:       %s\n" "$(numfmt --to=iec "$TOTAL_SIZE")"
+    printf "  大文件(≥10M): %s 个, 合计 %s\n" "$ALL_LARGE_COUNT" "$(numfmt --to=iec "$ALL_LARGE_SIZE")"
     echo ""
     echo "（dry-run 模式，未实际上传。去掉 --dry-run 执行上传）"
     exit 0
