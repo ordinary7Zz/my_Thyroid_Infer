@@ -22,7 +22,7 @@ datasets:
 
 # --- 标签文件 ---
 labels:
-  binary_json:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/sample_test_label.json
+  binary_json:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/TN3K_test_label.json
   binary_field: malignancy
   tirads_json:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/Cine-Clip_sample_label.json
   tirads_field: tirads
