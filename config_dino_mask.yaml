@@ -68,7 +68,7 @@ weights:
     medsiglip:             ./infer_medsiglip/checkpoints/TIRADS_5cls/best_model.pt
     ultrafedfm:            ./infer_ultrafedfm/checkpoints/checkpoint-best_auroc.pth
     dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/TIRADS_5cls/dino_unet_train_TIRADS_Cine-Clip_epoch_50.pth
-    autogluon:             ./infer_autogluon/checkpoints/binary
+    autogluon:             ./infer_autogluon/checkpoints/tirads
 
 # --- 预训练骨干模型目录 ---
 pretrained:
