@@ -313,7 +313,11 @@ def main():
     parser.add_argument(
         "--tasks", nargs="+", default=None,
         choices=["gland", "nodule", "binary", "tirads"],
-        help="要运行的任务（默认全部）",
+        help="要运行的任务（默认全部基础任务，不含 agent）",
+    )
+    parser.add_argument(
+        "--with_agents", action="store_true",
+        help="追加 seg_agent 和 cls_agent 到任务列表（需要足够显存加载 GPT-OSS 模型）",
     )
     parser.add_argument(
         "--models", nargs="+", default=None,
@@ -378,7 +382,11 @@ def main():
     generate_config(args.base_config, processed_dir, new_config_path, args.use_dino_mask)
 
     # ---- Step 3: 运行推理 ----
-    ok = run_inference(new_config_path, args.tasks, args.models, args.dry_run)
+    # 如果 --with_agents，追加 agent 任务
+    tasks = args.tasks
+    if args.with_agents:
+        tasks = (tasks or ["gland", "nodule", "binary", "tirads"]) + ["seg_agent", "cls_agent"]
+    ok = run_inference(new_config_path, tasks, args.models, args.dry_run)
     if not ok:
         sys.exit(1)
 

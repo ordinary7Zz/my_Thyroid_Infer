@@ -497,18 +497,22 @@ def main():
         print(f"HD95:  {hd95_mean:.4f}  (95% CI: [{hd95_ci_lo:.4f}, {hd95_ci_hi:.4f}])")
         print("=" * 60)
 
-        # 每样本指标
-        print("\n--- Per-Sample Metrics ---")
-        print("filename,dice,hd95")
-        for rec in case_records:
-            if rec.get("skipped"):
-                continue
-            fname = rec.get("filename", "")
-            dice = rec.get("dice")
-            hd95 = rec.get("hd95")
-            dice_str = f"{dice:.4f}" if dice is not None else "N/A"
-            hd95_str = f"{hd95:.4f}" if hd95 is not None else "N/A"
-            print(f"{fname},{dice_str},{hd95_str}")
+        # 每样本指标 — 仅写入 log 文件，不打印到终端
+        _tee = sys.stdout
+        _log_fh = _tee.log if isinstance(_tee, TeeLogger) else None
+        if _log_fh is not None:
+            _log_fh.write("\n--- Per-Sample Metrics ---\n")
+            _log_fh.write("filename,dice,hd95\n")
+            for rec in case_records:
+                if rec.get("skipped"):
+                    continue
+                fname = rec.get("filename", "")
+                dice = rec.get("dice")
+                hd95 = rec.get("hd95")
+                dice_str = f"{dice:.4f}" if dice is not None else "N/A"
+                hd95_str = f"{hd95:.4f}" if hd95 is not None else "N/A"
+                _log_fh.write(f"{fname},{dice_str},{hd95_str}\n")
+            _log_fh.flush()
 
     # 恢复 stdout
     _restore_stdout(original_stdout)

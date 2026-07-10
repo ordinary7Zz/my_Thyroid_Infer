@@ -41,6 +41,9 @@ Thumbs.db
 # ====================
 # 模型权重文件
 # ====================
+# 忽略所有 checkpoints/ 目录（任何层级）
+checkpoints/
+
 *.pth
 *.pt
 *.pth.tar

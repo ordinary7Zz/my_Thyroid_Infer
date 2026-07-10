@@ -863,16 +863,25 @@ def main():
     parser.add_argument("--mode", choices=["finetune", "pretrained"], default="pretrained",
                         help="推理模式: finetune（默认，使用微调权重）/ "
                              "pretrained（使用预训练权重，跳过 transunet/ultrafedfm）")
-    parser.add_argument("--tasks", nargs="+", default=list(TASKS.keys()),
+    parser.add_argument("--tasks", nargs="+",
+                        default=["gland", "nodule", "binary", "tirads"],
                         choices=list(TASKS.keys()),
-                        help="要运行的任务（默认全部；seg_agent/cls_agent 为后处理，需先运行对应基础任务）")
+                        help="要运行的任务（默认不含 agent，需显式指定 seg_agent/cls_agent 才运行）")
     parser.add_argument("--models", nargs="+", default=None,
                         help="只运行指定的模型（跨任务筛选）")
+    parser.add_argument("--with_agents", action="store_true",
+                        help="追加 seg_agent 和 cls_agent 任务到任务列表")
     parser.add_argument("--dry_run", action="store_true",
                         help="只打印命令不执行")
     parser.add_argument("--list", action="store_true",
                         help="列出所有任务和模型后退出")
     args = parser.parse_args()
+
+    # --with_agents: 追加 agent 任务到任务列表末尾
+    if args.with_agents:
+        for agent_task in ("seg_agent", "cls_agent"):
+            if agent_task not in args.tasks:
+                args.tasks.append(agent_task)
 
     # 加载配置文件（必须在使用 CONFIG 之前完成）
     global CONFIG, MODE
