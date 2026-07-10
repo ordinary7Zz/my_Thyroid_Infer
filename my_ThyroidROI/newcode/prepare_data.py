@@ -33,7 +33,7 @@
   # 跳过 ROI 提取，仅复制和标签处理
   python prepare_data.py --skip_roi
 
-  # 关闭文件名匿名化（默认开启，将文件名最后一段替换为哈希以掩盖病人信息）
+  # 关闭文件名匿名化（默认开启，将中心+患者信息替换为哈希，保留时间戳）
   python prepare_data.py --no_anonymize
 
   # 不保存 原名→匿名名 映射（默认保存，便于回溯）
@@ -68,22 +68,42 @@ ROI_SUFFIX = "_ROI1"  # 结节掩码
 # ========================= 文件名匿名化 =========================
 def anonymize_filename(stem: str, ext: str) -> str:
     """
-    将文件名最后一段（最后一个 '_' 之后的部分）替换为基于原名的哈希，
-    以掩盖病人信息，同时保证不同图像文件名不重复。
+    匿名化文件名：分别抹除中心信息（前 3 段）和患者信息（第 4 段），
+    保留时间戳（第 5 段及以后）。
 
-    例: THYB_S_AN01_ND000111_20206154032 → THYB_S_AN01_ND000111_a3f2b1c9d4e0
+    文件名结构: THYB_S_AN01_ND000091_202052842015
+                └── 中心 ──┘ └ 患者者 ┘ └ 时间戳 ┘
 
-    使用 SHA-256 前 12 位十六进制作为新后缀：
-      - 不可逆，无法还原原始时间戳/病人信息
-      - 确定性，同一原图多次运行结果一致
-      - 12 位十六进制 (48 bit) 碰撞概率极低
+    匿名化后:   3d0b487c4929_5f8a2b1c9d3e_202052842015
+                └─ 中心哈希 ─┘└─ 患者哈希 ┘└ 时间戳 ┘
+
+    规则:
+      - 中心（前 3 段用 _ 连接）和患者（第 4 段）分别计算 SHA-256 前 12 位
+      - 同中心 → 同哈希，同患者 → 同哈希（确定性，非随机）
+      - 时间戳（第 5 段及以后）原样保留
+      - 段数 < 4 时回退为对完整 stem 哈希
+
+    例: THYB_S_AN01_ND000091_202052842015 → 3d0b487c4929_5f8a2b1c9d3e_202052842015
+        THYB_S_AN01_ND000092_20206154032  → 3d0b487c4929_a1b2c3d4e5f6_20206154032
     """
-    digest = hashlib.sha256(stem.encode("utf-8")).hexdigest()[:12]
-    if "_" in stem:
-        prefix = stem.rsplit("_", 1)[0]
-        new_stem = f"{prefix}_{digest}"
+    parts = stem.split("_")
+
+    if len(parts) >= 4:
+        # 前 3 段 = 中心，第 4 段 = 患者，第 5 段及以后 = 时间戳（保留）
+        center_key = "_".join(parts[:3])
+        patient_key = parts[3]
+        suffix = "_".join(parts[4:])  # 可能为空
+
+        center_hash = hashlib.sha256(center_key.encode("utf-8")).hexdigest()[:12]
+        patient_hash = hashlib.sha256(patient_key.encode("utf-8")).hexdigest()[:12]
+
+        new_stem = f"{center_hash}_{patient_hash}"
+        if suffix:
+            new_stem = f"{new_stem}_{suffix}"
     else:
-        new_stem = digest
+        # 段数 < 4：回退为对完整 stem 哈希
+        new_stem = hashlib.sha256(stem.encode("utf-8")).hexdigest()[:12]
+
     return f"{new_stem}{ext}"
 
 
@@ -251,7 +271,7 @@ def main():
     parser.add_argument(
         "--no_anonymize",
         action="store_true",
-        help="关闭文件名匿名化（默认开启：将文件名最后一段替换为哈希以掩盖病人信息）",
+        help="关闭文件名匿名化（默认开启：将中心+患者信息替换为哈希，保留时间戳）",
     )
     parser.add_argument(
         "--no_save_name_mapping",
@@ -288,7 +308,7 @@ def main():
 
     anonymize = not args.no_anonymize
     if anonymize:
-        print("文件名匿名化: 开启（将最后一段替换为哈希以掩盖病人信息）")
+        print("文件名匿名化: 开启（中心+患者信息替换为哈希，保留时间戳）")
     else:
         print("文件名匿名化: 关闭")
 
@@ -342,7 +362,7 @@ def main():
         roi_path = input_dir / f"{stem}{ROI_SUFFIX}{ext}"
         ini_path = input_dir / f"{stem}.ini"
 
-        # 输出文件名：匿名化时将最后一段替换为哈希
+        # 输出文件名：匿名化时将中心+患者信息替换为哈希
         if anonymize:
             out_name = anonymize_filename(stem, ext)
             name_map[img_path.name] = out_name
