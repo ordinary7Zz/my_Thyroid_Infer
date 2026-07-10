@@ -106,3 +106,13 @@ prepare:
 # --- 通用参数 ---
 device: cuda
 n_bootstrap: 2000
+
+# --- Agent 任务配置 ---
+# seg_agent: 从指定分割任务的掩码输出中，使用 LLM Agent 选择/融合最佳掩码
+# cls_agent: 从指定分类任务的 CSV 输出中，使用 LLM Agent 选择最佳模型预测
+# 注意: Agent 任务是后处理，需先运行对应的基础任务（如 nodule / binary）
+seg_agent:
+  source_task: nodule  # 从哪个分割任务读取掩码: gland / nodule
+
+cls_agent:
+  source_task: binary  # 从哪个分类任务读取 CSV: binary / tirads

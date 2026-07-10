@@ -61,6 +61,8 @@ my_Thyroid_infer/
 ├── infer_medsiglip/                  # MedSigLIP 分类推理
 ├── infer_transunet/                  # TransUNet 分割推理
 ├── infer_ultrafedfm/                 # UltraFedFM 分割 + 分类推理
+├── infer_seg_agent/                  # 分割 Agent（多模型掩码选择/融合）
+├── infer_cls_agent/                  # 分类 Agent（多模型预测选择/融合）
 │
 └── results/                          # 推理结果（掩码、预测 CSV、指标日志、汇总报告）
 ```
@@ -87,6 +89,15 @@ my_Thyroid_infer/
 | **MedSigLIP** | MedSigLIP-448 | `infer_medsiglip/inference.py` | SigLIP 视觉编码器 + 分类头 |
 | **DINOv3-UNet (多任务)** | DINOv3 ViT-S | `infer_dinov3_unet_multitask/infer_classification.py` | 分割模型的多任务分类头 |
 | **UltraFedFM** | ViT-B | `infer_ultrafedfm/classify.py` | 联邦预训练 ViT 分类 |
+
+### Agent 模型（多模型选择/融合）
+
+| Agent | 任务 | 入口脚本 | 特点 |
+|---|---|---|---|
+| **SegAgent** | 分割掩码选择/融合 | `infer_seg_agent/infer.py` | LLM 从多模型掩码中选择最佳或加权融合 |
+| **ClsAgent** | 分类预测选择/融合 | `infer_cls_agent/infer.py` | LLM 从多模型预测中选择最佳或 soft voting |
+
+> Agent 默认使用 `local_gpt_oss`（本地 GPT-OSS 模型），不调用外部 API。也可通过配置切换为云端 LLM（如阿里百炼 Qwen）。Agent 任务是后处理，需先运行对应基础任务（如 `nodule` / `binary`）。
 
 ---
 
@@ -287,6 +298,24 @@ python run_all.py --dry_run
 
 # 列出所有任务和模型
 python run_all.py --list
+
+# 只运行 Agent 任务（需先运行基础任务）
+python run_all.py --tasks seg_agent cls_agent
+
+# 单独运行分割 Agent
+python infer_seg_agent/infer.py \
+    --task_dir results/nodule \
+    --models dinov3_unet medsam2 medsegx transunet ultrafedfm \
+    --gt_dir /path/to/gt_masks \
+    --output_dir results/nodule/seg_agent
+
+# 单独运行分类 Agent
+python infer_cls_agent/infer.py \
+    --task_dir results/binary \
+    --models biomedclip medsiglip dinov3_unet_multitask ultrafedfm autogluon \
+    --label_json /path/to/labels.json \
+    --label_field malignancy \
+    --output_dir results/binary/cls_agent
 ```
 
 ### 方式三：单独运行某个模型

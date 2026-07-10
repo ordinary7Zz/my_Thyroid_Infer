@@ -535,15 +535,80 @@ def _cls_tirads():
     return cmds
 
 
+# ---------- Agent: 分割掩码选择/融合 ----------
+
+def _seg_agent():
+    """分割 Agent: 依赖 gland/nodule 任务的 mask 输出，选择或融合最佳掩码。
+    通过 --source_task 指定从哪个分割任务读取掩码（默认: nodule）。
+    """
+    seg_models = ["dinov3_unet", "medsam2", "medsegx", "transunet", "ultrafedfm"]
+    # 默认从 nodule 任务的掩码读取
+    source_task = CONFIG.get("seg_agent", {}).get("source_task", "nodule")
+    source_dir = _resolve(os.path.join(CONFIG["output_root"], source_task))
+
+    # GT 目录：复用源任务的 GT
+    gt_dir = CONFIG["datasets"].get(f"{source_task}_masks", "")
+
+    cmds = []
+    cmds.append(("seg_agent", [
+        sys.executable, str(ROOT / "infer_seg_agent" / "infer.py"),
+        "--task_dir", source_dir,
+        "--models"] + seg_models + [
+        "--gt_dir", gt_dir,
+        "--config", str(ROOT / "infer_seg_agent" / "config_seg_agent.yaml"),
+        "--output_dir", _out("seg_agent", "seg_agent"),
+        "--n_bootstrap", str(CONFIG["n_bootstrap"]),
+    ]))
+    return cmds
+
+
+# ---------- Agent: 分类预测选择/融合 ----------
+
+def _cls_agent():
+    """分类 Agent: 依赖 binary/tirads 任务的 CSV 输出，选择最佳模型预测。
+    通过 --source_task 指定从哪个分类任务读取（默认: binary）。
+    """
+    cls_models = ["biomedclip", "medsiglip", "ultrafedfm", "dinov3_unet_multitask", "autogluon"]
+    source_task = CONFIG.get("cls_agent", {}).get("source_task", "binary")
+    source_dir = _resolve(os.path.join(CONFIG["output_root"], source_task))
+
+    # 标签和类别数
+    if source_task == "tirads":
+        label_json = CONFIG["labels"].get("tirads_json", "")
+        label_field = CONFIG["labels"].get("tirads_field", "tirads")
+        num_classes = 5
+    else:
+        label_json = CONFIG["labels"].get("binary_json", "")
+        label_field = CONFIG["labels"].get("binary_field", "malignancy")
+        num_classes = 2
+
+    cmds = []
+    cmds.append(("cls_agent", [
+        sys.executable, str(ROOT / "infer_cls_agent" / "infer.py"),
+        "--task_dir", source_dir,
+        "--models"] + cls_models + [
+        "--label_json", label_json,
+        "--label_field", label_field,
+        "--num_classes", str(num_classes),
+        "--config", str(ROOT / "infer_cls_agent" / "config_cls_agent.yaml"),
+        "--output_dir", _out("cls_agent", "cls_agent"),
+        "--n_bootstrap", str(CONFIG["n_bootstrap"]),
+    ]))
+    return cmds
+
+
 # ============================================================================
 # 任务注册表
 # ============================================================================
 
 TASKS = {
-    "gland":  {"desc": "腺体分割",      "builder": _seg_gland,  "models": ["dinov3_unet", "medsam2", "medsegx", "transunet", "ultrafedfm"]},
-    "nodule": {"desc": "结节分割",      "builder": _seg_nodule, "models": ["dinov3_unet", "medsam2", "medsegx", "transunet", "ultrafedfm"]},
-    "binary": {"desc": "良恶性二分类",  "builder": _cls_binary, "models": ["biomedclip", "medsiglip", "ultrafedfm", "dinov3_unet_multitask", "autogluon"]},
-    "tirads": {"desc": "TIRADS五分类",  "builder": _cls_tirads, "models": ["biomedclip", "medsiglip", "ultrafedfm", "dinov3_unet_multitask", "autogluon"]},
+    "gland":     {"desc": "腺体分割",      "builder": _seg_gland,  "models": ["dinov3_unet", "medsam2", "medsegx", "transunet", "ultrafedfm"]},
+    "nodule":    {"desc": "结节分割",      "builder": _seg_nodule, "models": ["dinov3_unet", "medsam2", "medsegx", "transunet", "ultrafedfm"]},
+    "binary":    {"desc": "良恶性二分类",  "builder": _cls_binary, "models": ["biomedclip", "medsiglip", "ultrafedfm", "dinov3_unet_multitask", "autogluon"]},
+    "tirads":    {"desc": "TIRADS五分类",  "builder": _cls_tirads, "models": ["biomedclip", "medsiglip", "ultrafedfm", "dinov3_unet_multitask", "autogluon"]},
+    # Agent 任务（后处理，依赖前面任务的输出）
+    "seg_agent": {"desc": "分割Agent融合", "builder": _seg_agent, "models": ["seg_agent"]},
+    "cls_agent": {"desc": "分类Agent融合", "builder": _cls_agent, "models": ["cls_agent"]},
 }
 
 
@@ -706,6 +771,20 @@ def preflight_check(tasks, models_filter=None):
     os.makedirs(out_root, exist_ok=True)
 
     for task_id in tasks:
+        # Agent 任务是后处理，不检查常规权重/数据集，只检查 agent 脚本和配置存在
+        if task_id in ("seg_agent", "cls_agent"):
+            if task_id == "seg_agent":
+                script = ROOT / "infer_seg_agent" / "infer.py"
+                cfg = ROOT / "infer_seg_agent" / "config_seg_agent.yaml"
+            else:
+                script = ROOT / "infer_cls_agent" / "infer.py"
+                cfg = ROOT / "infer_cls_agent" / "config_cls_agent.yaml"
+            if not script.is_file():
+                missing.append(("文件", f"{task_id}/infer.py", str(script), str(script)))
+            if not cfg.is_file():
+                missing.append(("文件", f"{task_id}/config", str(cfg), str(cfg)))
+            continue
+
         dep = _TASK_DEPS[task_id]
         # 数据集目录
         for key, desc in dep["dirs"]:
@@ -786,7 +865,7 @@ def main():
                              "pretrained（使用预训练权重，跳过 transunet/ultrafedfm）")
     parser.add_argument("--tasks", nargs="+", default=list(TASKS.keys()),
                         choices=list(TASKS.keys()),
-                        help="要运行的任务（默认全部）")
+                        help="要运行的任务（默认全部；seg_agent/cls_agent 为后处理，需先运行对应基础任务）")
     parser.add_argument("--models", nargs="+", default=None,
                         help="只运行指定的模型（跨任务筛选）")
     parser.add_argument("--dry_run", action="store_true",
@@ -813,6 +892,12 @@ def main():
         CONFIG["save_masks"] = True
         _cls_mask_src = "gland/dinov3_unet" if _cls_mask_val is True else str(_cls_mask_val)
         print(f"  [分割掩码模式] 自动开启 save_masks，autogluon 使用 {_cls_mask_src} 掩码")
+
+    # 如果任务列表包含 seg_agent，强制开启 save_masks（Agent 需要所有分割模型的掩码）
+    if "seg_agent" in args.tasks:
+        if not CONFIG.get("save_masks", False):
+            CONFIG["save_masks"] = True
+            print(f"  [SegAgent模式] 自动开启 save_masks，seg_agent 需要所有分割模型掩码")
 
     if args.list:
         print("可用任务和模型:\n")
