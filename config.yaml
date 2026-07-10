@@ -15,8 +15,8 @@ datasets:
   gland_masks:   /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TGVideo_PNG/sample/masks
   nodule_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/images
   nodule_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/masks
-  binary_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/images
-  binary_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/sample/masks
+  binary_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/images
+  binary_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/masks
   tirads_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/images
   tirads_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/sample/masks
 
