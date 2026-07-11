@@ -1,0 +1,10 @@
+# infer_explain 额外依赖
+# 基础环境（torch, numpy, pandas, matplotlib 等）已在 unified_requirements.txt 中声明
+# 以下为本子项目额外需要的包
+
+# --- SHAP 分析 ---
+shap>=0.43.0
+autogluon.tabular[light]>=1.0    # 与 infer_autogluon 共用
+
+# --- GradCAM ---
+# 无额外依赖，torch + opencv + scipy 即可（已在 unified_requirements.txt 中）

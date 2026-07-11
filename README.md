@@ -63,6 +63,7 @@ my_Thyroid_infer/
 ├── infer_ultrafedfm/                 # UltraFedFM 分割 + 分类推理
 ├── infer_seg_agent/                  # 分割 Agent（多模型掩码选择/融合）
 ├── infer_cls_agent/                  # 分类 Agent（多模型预测选择/融合）
+├── infer_explain/                    # 可解释性分析（SHAP 分类 + GradCAM 分割）
 │
 └── results/                          # 推理结果（掩码、预测 CSV、指标日志、汇总报告）
 ```

@@ -1,0 +1,57 @@
+# ============================================================================
+# 可解释性分析配置文件
+# ============================================================================
+# 用法: python infer_explain/run_explain.py --config config_explain.yaml
+#
+# 所有路径支持相对路径（以本文件所在目录为基准）或绝对路径。
+# ============================================================================
+
+# --- 输入路径 ---
+image_dir: ""                    # 图像目录（必填）
+mask_dir: ""                     # 掩码目录（按文件名 stem 匹配；留空则不生成 GT 轮廓叠加）
+train_csv: ""                    # radiomics 特征 CSV（必填，含 label + filename/image_path 列）
+
+# --- 模型路径 ---
+autogluon_model_dir: ""          # AutoGluon 模型目录（SHAP 用，含 predictor.pkl）
+gradcam_checkpoint: ""           # DINOv3-UNet 权重文件（GradCAM 用，.pth）
+
+# --- 输出 ---
+output_dir: ./results/explain    # 输出根目录
+
+# --- 开关 ---
+run_shap_per_image: true         # 逐图 SHAP 分析（waterfall + compact bar）
+run_gradcam: true                # 逐图 GradCAM 分析（热力图）
+run_batch_shap: false            # 批量 SHAP 分析（整个 train_csv 的全局分析）
+
+# --- SHAP 参数 ---
+shap:
+  label: label                   # 标签列名
+  background_samples: 100        # SHAP 背景样本数（影响计算速度）
+  skip_neural_net: true          # 跳过 NeuralNet 模型（加速）
+  main_models: []                # 指定模型列表（空=自动从 ensemble log 检测）
+  top_features: 5                # 图中显示的 top 特征数
+  positive_class_name: ""        # 正类可读名（图例显示，如 "Malignant"）
+  negative_class_name: ""        # 负类可读名（图例显示，如 "Benign"）
+  output_space: ""               # SHAP 输出空间标注（probability / raw score）
+  feature_label_lang: en         # 特征标签语言（en / zh）
+
+  # 批量 SHAP 额外参数（仅当 run_batch_shap: true 时生效）
+  batch:
+    explain_samples: 500         # 批量分析的解释样本数
+    plot_beeswarm_for: []        # 生成 beeswarm 图的模型名列表，如 ["LightGBM_BAG_L1"]
+    plot_waterfall: true         # 生成代表性样本 waterfall 图
+    waterfall_samples: 3         # 每个质量类别的样本数（best/medium/worst/correct）
+
+# --- GradCAM 参数 ---
+gradcam:
+  output_type: all               # all/original/overlay/overlay_gt/original_gt/gradcam_map
+  img_size: 224                  # 输入缩放尺寸（需与训练一致）
+  dino_pretrained: true          # 加载 DINOv3 ImageNet 预训练权重
+  target_layer: reduce4          # GradCAM 目标层（up1~up4 / reduce1~reduce4）
+  alpha: 0.45                    # 热力图叠加不透明度
+  smooth_sigma_ratio: 0.02       # 高斯平滑核占图像尺寸比例
+  gamma: 1.0                     # Gamma 变换指数
+  saturation_scale: 1.3          # 色彩饱和度增强倍数
+
+# --- 通用 ---
+device: cuda                     # 推理设备（cuda / cpu）
