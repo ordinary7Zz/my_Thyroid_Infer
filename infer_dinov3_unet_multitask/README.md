@@ -41,6 +41,25 @@ python infer_classification.py \
 | img1.jpg | 1              | 0.8732     |
 | img2.jpg | 0              | 0.6541     |
 
+### 2b. 二分类推理 + 验证集 Youden 阈值（推荐）
+
+在独立验证集上计算 Youden 最优阈值，再用于测试集预测与指标统计：
+
+```bash
+python infer_classification.py \
+    --image_dir /path/to/test/images \
+    --checkpoint /path/to/model.pth \
+    --num_classes 2 \
+    --output results/binary_preds.csv \
+    --label_file /path/to/test/labels.json \
+    --label_field malignancy \
+    --val_image_dir /path/to/val/images \
+    --val_label_file /path/to/val/labels.json \
+    --log_file results/binary_metrics.log
+```
+
+终端会打印验证集上的 Youden 阈值、灵敏度、特异度，并在 `.log` 中记录所用阈值及其来源 `youden(val)`。如需手动指定阈值，用 `--threshold 0.4` 替代（优先级最高）。
+
 ### 3. TIRADS 五分类推理（含标签文件，输出指标）
 
 ```bash
@@ -109,6 +128,24 @@ Bootstrap:    n_boot=2000, ci=0.95, seed=0
 | `--label_field` | 无 | 标签文件中对应的任务字段名（如 `malignancy`、`tirads`、`LNM_CN01` 等） |
 | `--label_offset` | `-1` | 标签偏移量。`-1`=自动检测, `0`=不偏移, `1`=标签减1（如 TIRADS 1-5 → 0-4） |
 | `--log_file` | 与CSV同名`.log` | 指标日志输出路径 |
+
+### 阈值选择（仅二分类）
+
+二分类预测默认使用 0.5 作为正类概率阈值。可通过以下参数选择阈值策略（优先级从高到低）：
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--threshold` | 无 | 显式指定二分类阈值。**优先级最高**，设置后跳过 Youden 计算 |
+| `--val_image_dir` | 无 | 验证集图像目录。与 `--val_label_file` 同时提供时，在验证集上计算 Youden 最优阈值，再用于测试集预测与指标 |
+| `--val_label_file` | 无 | 验证集标签 JSON 文件，字段复用 `--label_field` |
+
+阈值决策逻辑（仅 `num_classes=2` 生效）：
+
+1. 若提供 `--threshold` → 使用该值
+2. 否则若同时提供 `--val_image_dir` 和 `--val_label_file` → 在验证集上推理并按 **Youden 指数**（`J = sensitivity + specificity - 1`）求最优阈值
+3. 否则 → 使用默认 `0.5`
+
+> Youden 阈值应在独立验证集上计算，避免过拟合到测试集。日志会记录所用阈值及其来源（`default` / `youden(val)` / `user`）。五分类不受影响，仍使用 `argmax`。
 
 ### 模型与硬件配置
 
@@ -181,7 +218,7 @@ Bootstrap:    n_boot=2000, ci=0.95, seed=0
 
 脚本根据 `--num_classes` 自动选择分类头：
 
-- `num_classes=2`：使用 `benign_malignant_head`（sigmoid + threshold 0.5）
+- `num_classes=2`：使用 `benign_malignant_head`（sigmoid），阈值由上述"阈值选择"策略决定（默认 0.5 / Youden / 用户指定）
 - `num_classes=5`：使用 `tirads_head`（softmax + argmax）
 
 ## 注意事项

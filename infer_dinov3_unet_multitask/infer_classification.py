@@ -59,6 +59,7 @@ from cls_metrics import (
     METRIC_ORDER,
     binary_bootstrap_metrics,
     multiclass_bootstrap_metrics,
+    find_best_threshold_by_youden_index,
 )
 
 
@@ -266,7 +267,7 @@ def load_model(checkpoint_path: str, pretrained: bool, use_dilation: bool,
 # 推理主流程
 # ---------------------------------------------------------------------------
 
-def run_inference(model, loader, device, num_classes):
+def run_inference(model, loader, device, num_classes, threshold=0.5):
     """执行推理，返回每个样本的结果列表（含预测类别、置信度、概率）。
 
     每个结果 dict 包含：
@@ -274,6 +275,8 @@ def run_inference(model, loader, device, num_classes):
       _prob_1  (二分类: P(class=1))
       _probs   (五分类: [p0, p1, ..., p4])
       _path    (图像完整路径，用于标签匹配)
+
+    二分类时使用 ``threshold`` 对正类概率二值化。
     """
     results = []
 
@@ -286,7 +289,7 @@ def run_inference(model, loader, device, num_classes):
                 logits = benign_malignant.squeeze(1)  # (B,)
                 probs_1 = torch.sigmoid(logits)       # (B,)
                 probs_0 = 1.0 - probs_1
-                preds = (probs_1 > 0.5).long()
+                preds = (probs_1 > threshold).long()
                 confidence = torch.max(
                     torch.stack([probs_0, probs_1], dim=1), dim=1
                 )[0]
@@ -345,10 +348,77 @@ def save_csv(results, output_path, has_labels, num_classes):
 
 
 
+def compute_youden_threshold_on_val(
+    model, args, device,
+) -> dict:
+    """在独立验证集上推理并计算 Youden 最优二分类阈值。
+
+    使用与测试集相同的 checkpoint / img_size / 预处理，对验证集图像推理，
+    收集 (y_true, y_prob_1) 后通过最大化 Youden 指数求最优阈值。
+
+    Returns:
+        dict: {best_threshold, youden, sensitivity, specificity}
+    """
+    val_dataset = InferenceDataset(args.val_image_dir, img_size=args.img_size)
+    val_loader = DataLoader(
+        val_dataset, batch_size=args.batch_size, shuffle=False,
+        num_workers=args.num_workers,
+    )
+
+    # 验证集标签
+    val_image_mapping = scan_image_dir(args.val_image_dir)
+    val_label_mapping = load_labels(
+        args.val_label_file, args.label_field, val_image_mapping,
+        args.num_classes, args.label_offset,
+    )
+
+    print("=" * 60)
+    print("在验证集上计算 Youden 阈值")
+    print(f"验证集图像目录: {args.val_image_dir}")
+    print(f"验证集标签文件: {args.val_label_file}")
+    print("=" * 60)
+
+    val_results = run_inference(
+        model, val_loader, device, args.num_classes, threshold=0.5,
+    )
+
+    y_true = []
+    y_prob = []
+    for r in val_results:
+        fpath = r['_path']
+        label = val_label_mapping.get(fpath, -1)
+        if label == -1:
+            continue
+        y_true.append(label)
+        y_prob.append(r['_prob_1'])
+
+    if not y_true:
+        raise ValueError(
+            "验证集推理结果未能匹配到任何标签，请检查验证集图像目录与标签文件。"
+        )
+
+    threshold_info = find_best_threshold_by_youden_index(y_true, y_prob)
+
+    print(
+        f"Youden 阈值计算完成 (验证集样本数: {len(y_true)}):\n"
+        f"  best_threshold = {threshold_info['best_threshold']}\n"
+        f"  youden         = {threshold_info['youden']}\n"
+        f"  sensitivity    = {threshold_info['sensitivity']}\n"
+        f"  specificity    = {threshold_info['specificity']}"
+    )
+    return threshold_info
+
 
 def compute_and_save_metrics(results, num_classes, label_field, log_path,
-                             n_boot, ci, seed):
-    """计算指标并保存到 .log 文件（统一格式）。"""
+                             n_boot, ci, seed, threshold=0.5,
+                             threshold_source: str = "default"):
+    """计算指标并保存到 .log 文件（统一格式）。
+
+    threshold_source 用于在 log 中说明阈值来源，取值如：
+      "default"        —— 默认 0.5
+      "youden(val)"    —— 验证集 Youden 最优
+      "user"           —— 用户通过 --threshold 显式指定
+    """
     y_true = np.array([r['true_label'] for r in results], dtype=np.int32)
     valid = y_true != -1
 
@@ -359,7 +429,7 @@ def compute_and_save_metrics(results, num_classes, label_field, log_path,
 
         metrics = binary_bootstrap_metrics(
             y_prob_valid, y_true_valid,
-            threshold=0.5, n_boot=n_boot, ci=ci, seed=seed,
+            threshold=threshold, n_boot=n_boot, ci=ci, seed=seed,
         )
     else:
         y_probs = np.array([r['_probs'] for r in results], dtype=np.float64)
@@ -377,6 +447,10 @@ def compute_and_save_metrics(results, num_classes, label_field, log_path,
     out_lines = []
     out_lines.append("=" * 60)
     out_lines.append(f"评估样本数: {n_valid}")
+    if num_classes == 2:
+        out_lines.append(
+            f"二分类阈值: {threshold:.6f}  (来源: {threshold_source})"
+        )
 
     metric_names = ['AUROC', 'AUPRC', 'Accuracy', 'Precision', 'F1', 'Recall']
     for name in metric_names:
@@ -411,6 +485,15 @@ def main(args):
     if args.label_file and not args.label_field:
         raise ValueError("提供 --label_file 时必须同时提供 --label_field")
 
+    # 验证集 Youden 仅对二分类生效
+    use_youden = (args.num_classes == 2
+                  and args.val_image_dir and args.val_label_file
+                  and args.threshold is None)
+    if args.num_classes != 2 and (args.val_image_dir or args.val_label_file):
+        print("[提示] --val_image_dir/--val_label_file 仅在二分类(num_classes=2)时用于 Youden 阈值计算，当前将忽略。")
+    if args.threshold is not None and args.num_classes != 2:
+        print("[提示] --threshold 仅对二分类生效，当前将忽略。")
+
     # ---------- 设备 ----------
     device = torch.device(
         f"cuda:{args.cuda_device}" if torch.cuda.is_available() else "cpu"
@@ -420,6 +503,23 @@ def main(args):
     model = load_model(
         args.checkpoint, args.dino_pretrained, args.use_dilation, device
     )
+
+    # ---------- 二分类阈值决策 ----------
+    threshold = 0.5
+    threshold_source = "default"
+    if args.num_classes == 2:
+        if args.threshold is not None:
+            # 用户显式指定优先
+            threshold = float(args.threshold)
+            threshold_source = "user"
+            print(f"[阈值] 使用用户指定阈值: {threshold:.6f}")
+        elif use_youden:
+            # 在验证集上计算 Youden 最优阈值
+            threshold_info = compute_youden_threshold_on_val(model, args, device)
+            threshold = threshold_info['best_threshold']
+            threshold_source = "youden(val)"
+        else:
+            print(f"[阈值] 使用默认阈值: {threshold}")
 
     # ---------- 构建数据加载器 ----------
     dataset = InferenceDataset(args.image_dir, img_size=args.img_size)
@@ -442,13 +542,15 @@ def main(args):
     print(f"权重:     {args.checkpoint}")
     print(f"数据:     {args.image_dir}")
     print(f"类别数:   {args.num_classes}")
+    if args.num_classes == 2:
+        print(f"阈值:     {threshold:.6f} (来源: {threshold_source})")
     if args.label_file:
         print(f"标签字段: {args.label_field}")
     print(f"设备:     {device}")
     print("=" * 60)
 
     # ---------- 推理 ----------
-    results = run_inference(model, loader, device, args.num_classes)
+    results = run_inference(model, loader, device, args.num_classes, threshold=threshold)
 
     # ---------- 附加 true_label ----------
     if label_mapping is not None:
@@ -470,6 +572,7 @@ def main(args):
         compute_and_save_metrics(
             results, args.num_classes, args.label_field, log_path,
             args.n_boot, args.ci, args.seed,
+            threshold=threshold, threshold_source=threshold_source,
         )
 
     # ---------- 清理临时字段 ----------
@@ -508,6 +611,15 @@ if __name__ == "__main__":
                         help="标签偏移量。-1=自动检测, 0=不偏移, 1=标签减1（如 TIRADS 1-5 → 0-4）。默认 -1")
     parser.add_argument("--log_file", type=str, default=None,
                         help="指标日志输出路径。不指定时默认与 CSV 同名 .log 文件")
+
+    # 阈值选择（仅二分类）
+    parser.add_argument("--val_image_dir", type=str, default=None,
+                        help="验证集图像目录（仅二分类）。提供后将在验证集上计算 Youden 最优阈值用于测试集预测")
+    parser.add_argument("--val_label_file", type=str, default=None,
+                        help="验证集标签 JSON 文件（仅二分类）。字段复用 --label_field")
+    parser.add_argument("--threshold", type=float, default=None,
+                        help="二分类阈值。显式指定时优先级最高，跳过 Youden 计算；"
+                             "不指定且提供验证集时自动用 Youden；否则默认 0.5")
 
     # 图像与模型配置
     parser.add_argument("--img_size", type=int, default=224,

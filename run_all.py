@@ -390,6 +390,9 @@ def _cls_binary():
     ]))
 
     # dinov3_unet_multitask
+    # 二分类: 在验证集上计算 Youden 最优阈值。
+    # 当前未提供独立验证集，直接复用测试集路径（注意: 阈值会过拟合到测试集，指标偏乐观）。
+    # 如需独立验证集，可将下方 val_* 改为 CONFIG 中单独配置的验证集路径。
     cmds.append(("dinov3_unet_multitask", [
         sys.executable, str(ROOT / "infer_dinov3_unet_multitask" / "infer_classification.py"),
         "--image_dir", img,
@@ -400,6 +403,8 @@ def _cls_binary():
         "--label_field", field,
         "--log_file", _out("binary", "dinov3_unet_multitask", "metrics.log"),
         "--n_boot", nb,
+        "--val_image_dir", img,
+        "--val_label_file", label,
     ]))
 
     # autogluon
@@ -679,6 +684,7 @@ _PATH_FLAGS = {
     "--model_dir", "--model_path", "--label_json", "--label_file",
     "--metrics_output",
     "--mask_dir", "--radiomics_params",
+    "--val_image_dir", "--val_label_file",
 }
 
 

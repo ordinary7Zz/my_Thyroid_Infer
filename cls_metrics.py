@@ -30,6 +30,7 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     roc_auc_score,
+    roc_curve,
 )
 
 # 指标名称统一顺序
@@ -310,6 +311,86 @@ def multiclass_bootstrap_metrics(y_probs, y_true, num_classes,
 
     # 转换为 (mean, (lower, upper)) 格式
     return {k: (v[0], (v[1], v[2])) for k, v in results.items()}
+
+
+# ============================================================================
+# Youden Index 阈值选择（二分类）
+# ============================================================================
+
+def find_best_threshold_by_youden_index(y_true, y_prob, thresholds=None):
+    """通过最大化 Youden 指数（J = sensitivity + specificity - 1）寻找最优二分类阈值。
+
+    仅对二分类有意义。建议在独立验证集上计算阈值，再用于测试集评估，
+    以避免阈值过拟合到测试集。
+
+    Args:
+        y_true: (N,) int 标签，{0, 1}。-1 视为缺失将被忽略。
+        y_prob: (N,) float 正类概率。
+        thresholds: 可选 np.ndarray。若提供则在其上做网格搜索；
+                    若为 None 则使用 sklearn.metrics.roc_curve 导出的阈值（推荐，精确）。
+
+    Returns:
+        dict: {best_threshold, youden, sensitivity, specificity}
+    """
+    y_true_np = np.asarray(y_true).reshape(-1)
+    y_prob_np = np.asarray(y_prob, dtype=np.float64).reshape(-1)
+
+    valid_mask = y_true_np != -1
+    y_true_np = y_true_np[valid_mask]
+    y_prob_np = y_prob_np[valid_mask]
+
+    if y_true_np.size == 0 or np.unique(y_true_np).size < 2:
+        return {
+            'best_threshold': 0.5,
+            'youden': 0.0,
+            'sensitivity': 0.0,
+            'specificity': 0.0,
+        }
+
+    if thresholds is None:
+        fpr, tpr, roc_thresholds = roc_curve(y_true_np, y_prob_np, pos_label=1)
+        youden = tpr - fpr
+        max_j = np.max(youden)
+        candidate_idx = np.where(youden == max_j)[0]
+        # 平局处理：优先高灵敏度，再取较低阈值
+        if candidate_idx.size > 1:
+            best_tpr = np.max(tpr[candidate_idx])
+            candidate_idx = candidate_idx[np.where(tpr[candidate_idx] == best_tpr)[0]]
+        idx = int(candidate_idx[np.argmin(roc_thresholds[candidate_idx])])
+        best_t = float(roc_thresholds[idx])
+        best_j = float(youden[idx])
+        best_sens = float(tpr[idx])
+        best_spec = float(1.0 - fpr[idx])
+    else:
+        thresholds = np.asarray(thresholds, dtype=np.float64).reshape(-1)
+        if thresholds.size == 0:
+            thresholds = np.array([0.5], dtype=np.float64)
+        best_t = float(thresholds[0])
+        best_j = -np.inf
+        best_sens = 0.0
+        best_spec = 0.0
+        for t in thresholds:
+            preds = (y_prob_np >= float(t)).astype(int)
+            tp = np.sum((preds == 1) & (y_true_np == 1))
+            tn = np.sum((preds == 0) & (y_true_np == 0))
+            fp = np.sum((preds == 1) & (y_true_np == 0))
+            fn = np.sum((preds == 0) & (y_true_np == 1))
+            sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+            j = sensitivity + specificity - 1.0
+            if (j > best_j) or (j == best_j and sensitivity > best_sens) or \
+               (j == best_j and sensitivity == best_sens and float(t) < best_t):
+                best_j = float(j)
+                best_t = float(t)
+                best_sens = float(sensitivity)
+                best_spec = float(specificity)
+
+    return {
+        'best_threshold': round(best_t, 6),
+        'youden': round(best_j, 6),
+        'sensitivity': round(best_sens, 6),
+        'specificity': round(best_spec, 6),
+    }
 
 
 # ============================================================================
