@@ -372,12 +372,6 @@ def compute_youden_threshold_on_val(
         args.num_classes, args.label_offset,
     )
 
-    print("=" * 60)
-    print("在验证集上计算 Youden 阈值")
-    print(f"验证集图像目录: {args.val_image_dir}")
-    print(f"验证集标签文件: {args.val_label_file}")
-    print("=" * 60)
-
     val_results = run_inference(
         model, val_loader, device, args.num_classes, threshold=0.5,
     )
@@ -399,13 +393,6 @@ def compute_youden_threshold_on_val(
 
     threshold_info = find_best_threshold_by_youden_index(y_true, y_prob)
 
-    print(
-        f"Youden 阈值计算完成 (验证集样本数: {len(y_true)}):\n"
-        f"  best_threshold = {threshold_info['best_threshold']}\n"
-        f"  youden         = {threshold_info['youden']}\n"
-        f"  sensitivity    = {threshold_info['sensitivity']}\n"
-        f"  specificity    = {threshold_info['specificity']}"
-    )
     return threshold_info
 
 
@@ -447,10 +434,6 @@ def compute_and_save_metrics(results, num_classes, label_field, log_path,
     out_lines = []
     out_lines.append("=" * 60)
     out_lines.append(f"评估样本数: {n_valid}")
-    if num_classes == 2:
-        out_lines.append(
-            f"二分类阈值: {threshold:.6f}  (来源: {threshold_source})"
-        )
 
     metric_names = ['AUROC', 'AUPRC', 'Accuracy', 'Precision', 'F1', 'Recall']
     for name in metric_names:
@@ -512,14 +495,11 @@ def main(args):
             # 用户显式指定优先
             threshold = float(args.threshold)
             threshold_source = "user"
-            print(f"[阈值] 使用用户指定阈值: {threshold:.6f}")
         elif use_youden:
             # 在验证集上计算 Youden 最优阈值
             threshold_info = compute_youden_threshold_on_val(model, args, device)
             threshold = threshold_info['best_threshold']
             threshold_source = "youden(val)"
-        else:
-            print(f"[阈值] 使用默认阈值: {threshold}")
 
     # ---------- 构建数据加载器 ----------
     dataset = InferenceDataset(args.image_dir, img_size=args.img_size)
@@ -542,8 +522,6 @@ def main(args):
     print(f"权重:     {args.checkpoint}")
     print(f"数据:     {args.image_dir}")
     print(f"类别数:   {args.num_classes}")
-    if args.num_classes == 2:
-        print(f"阈值:     {threshold:.6f} (来源: {threshold_source})")
     if args.label_file:
         print(f"标签字段: {args.label_field}")
     print(f"设备:     {device}")
