@@ -13,18 +13,18 @@
 datasets:
   gland_images:  ./datasets/TGVideo_PNG/test/image
   gland_masks:   ./datasets/TGVideo_PNG/test/mask
-  nodule_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/finall_data/image
-  nodule_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/finall_data/mask
-  binary_images: ./datasets/TN3K/test/images
-  binary_masks:  ./datasets/TN3K/test/masks
-  tirads_images: ./datasets/Cine-Clip/test/images
-  tirads_masks:  ./datasets/Cine-Clip/test/masks
+  nodule_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/ZJH-8K/images
+  nodule_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/ZJH-8K/masks
+  binary_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/ZJH-8K/images
+  binary_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/ZJH-8K/masks
+  tirads_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/ZJH-8K/images
+  tirads_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/ZJH-8K/masks
 
 # --- 标签文件 ---
 labels:
-  binary_json:  ./datasets/TN3K/test/TN3K_test_label.json
+  binary_json:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/ZJH-8K/ZJH-8K_BM_labels.json
   binary_field: malignancy
-  tirads_json:  ./datasets/Cine-Clip/test/Cine-Clip_test_label.json
+  tirads_json:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/ZJH-8K/ZJH-8K_BM_labels.json
   tirads_field: tirads
 
 # --- 模型权重 ---

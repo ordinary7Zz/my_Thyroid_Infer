@@ -147,14 +147,34 @@ _MASK_DIR_FLAGS = {
 def _add_mask_output(task_id, cmds):
     """为分割模型的命令追加掩码输出目录参数。
 
-    根据 CONFIG['save_masks'] 决定是否追加掩码输出目录。
+    掩码保存策略:
+      - save_masks=True:           保存全部分割模型掩码（seg_agent 需要）
+      - use_dino_mask_for_cls 有值: 仅保存指定 task/model 的掩码（autogluon 需要）
+      - 两者同时存在:               保存全部（save_masks 优先）
+
     输出路径: results/<task>/<model>/masks/
     """
-    save_masks = CONFIG.get("save_masks", False)
+    save_all = CONFIG.get("save_masks", False)
+
+    # 解析 use_dino_mask_for_cls，确定需要定向保存掩码的 (task, model)
+    targeted_pairs = set()
+    cls_mask_val = CONFIG.get("use_dino_mask_for_cls", False)
+    if cls_mask_val is True:
+        targeted_pairs.add(("gland", "dinov3_unet"))
+    elif isinstance(cls_mask_val, str) and cls_mask_val:
+        parts = cls_mask_val.split("/")
+        t = parts[0]
+        m = parts[1] if len(parts) > 1 else "dinov3_unet"
+        targeted_pairs.add((t, m))
+
     result = []
     for model_name, cmd in cmds:
         flag = _MASK_DIR_FLAGS.get(model_name)
-        if flag is None or not save_masks:
+        if flag is None:
+            result.append((model_name, cmd))
+            continue
+        should_save = save_all or (task_id, model_name) in targeted_pairs
+        if not should_save:
             result.append((model_name, cmd))
             continue
         mask_path = _resolve(os.path.join(
@@ -903,10 +923,10 @@ def main():
         print(f"  [预训练模式] 输出目录: {CONFIG['output_root']}")
 
     _cls_mask_val = CONFIG.get("use_dino_mask_for_cls", False)
+    _cls_mask_src = None
     if _cls_mask_val:
-        CONFIG["save_masks"] = True
         _cls_mask_src = "gland/dinov3_unet" if _cls_mask_val is True else str(_cls_mask_val)
-        print(f"  [分割掩码模式] 自动开启 save_masks，autogluon 使用 {_cls_mask_src} 掩码")
+        print(f"  [分割掩码模式] autogluon 使用 {_cls_mask_src} 掩码（仅保存该模型掩码）")
 
     # 如果任务列表包含 seg_agent，强制开启 save_masks（Agent 需要所有分割模型的掩码）
     if "seg_agent" in args.tasks:
@@ -938,7 +958,12 @@ def main():
     if args.models:
         print(f"  模型筛选: {', '.join(args.models)}")
     print(f"  输出目录: {CONFIG['output_root']}")
-    print(f"  保存掩码: {CONFIG.get('save_masks', False)}")
+    if CONFIG.get("save_masks", False):
+        print(f"  保存掩码: 全部分割模型")
+    elif _cls_mask_src:
+        print(f"  保存掩码: 仅 {_cls_mask_src}")
+    else:
+        print(f"  保存掩码: 否")
     print(f"  设备: {CONFIG['device']}")
     print(f"  Dry run: {args.dry_run}")
     print("=" * 70)

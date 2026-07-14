@@ -87,6 +87,8 @@ output_root: ./results
 
 # --- 输出选项 ---
 # 分割任务是否保存预测掩码到 results/<task>/<model>/masks/
+# true:  保存全部分割模型掩码（seg_agent 需要）
+# false: 不保存（但 use_dino_mask_for_cls 指定的模型仍会定向保存）
 save_masks: false
 
 # 是否使用分割推理掩码作为分类任务的 mask

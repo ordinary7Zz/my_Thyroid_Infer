@@ -10,7 +10,9 @@
 本脚本应放在 my_ThyroidROI/newcode/ 目录下，与 roi_extractor.py 同级。
 直接 import 同目录下的 roi_extractor 模块，无需 sys.path hack。
 
-输入: <repo>/datasets/甲状腺私有数据/新建文件夹/ 下的原图(_ORG1/_ROI1)和 INI 标签文件
+扫描方式: 以 INI 标签文件为驱动，对每个 INI 查找同名原图和掩码（_ORG1/_ROI1）。
+          INI 数量 >= 图像数量（部分 INI 可能无对应图像，将被跳过并记录）。
+输入: <repo>/datasets/甲状腺私有数据/新建文件夹/ 下的 INI 标签文件及对应的原图(_ORG1/_ROI1)
 输出: <repo>/datasets/processed/ 下的:
   - images/        裁剪后的原始图像
   - gland_masks/   裁剪后的腺体掩码 (文件名与原图一致)
@@ -240,6 +242,24 @@ def crop_mask_with_params(mask_path: Path, crop_params: dict):
     return cropped_mask
 
 
+# ========================= 文件查找 =========================
+def _find_file_for_stem(input_dir, stem, suffix=""):
+    """根据 stem 查找对应的图像/掩码文件，尝试所有支持的图像扩展名。
+
+    参数:
+        input_dir: 输入目录 (Path)
+        stem:      文件名 stem（不含扩展名）
+        suffix:    文件名后缀标识（如 "_ORG1", "_ROI1"，默认空表示原图）
+
+    返回: 找到的 Path，或 None
+    """
+    for ext in sorted(IMAGE_EXTS):
+        candidate = input_dir / f"{stem}{suffix}{ext}"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 # ========================= 主流程 =========================
 def main():
     parser = argparse.ArgumentParser(
@@ -319,19 +339,16 @@ def main():
     for d in [images_dir, gland_masks_dir, nodule_masks_dir]:
         d.mkdir(parents=True, exist_ok=True)
 
-    # 收集所有原始图像（排除带 _ORG1/_ROI 后缀的）
-    original_images = []
+    # 收集所有 INI 标签文件（以 INI 为驱动扫描图像和掩码）
+    ini_files = []
     for p in sorted(input_dir.iterdir()):
         if not p.is_file():
             continue
-        if p.suffix.lower() not in IMAGE_EXTS:
+        if p.suffix.lower() != ".ini":
             continue
-        stem = p.stem
-        if stem.endswith(ORG_SUFFIX) or stem.endswith(ROI_SUFFIX):
-            continue
-        original_images.append(p)
+        ini_files.append(p)
 
-    print(f"找到 {len(original_images)} 个原始图像")
+    print(f"找到 {len(ini_files)} 个 INI 标签文件")
     print(f"输入目录: {input_dir}")
     print(f"输出目录: {output_dir}")
     print()
@@ -348,19 +365,25 @@ def main():
         "has_nodule_mask": 0,
         "missing_gland_mask": [],
         "missing_nodule_mask": [],
-        "missing_ini": [],
+        "missing_image": [],
         "roi_errors": [],
     }
 
-    for img_path in original_images:
-        stem = img_path.stem
+    for ini_path in ini_files:
+        stem = ini_path.stem  # 去掉 .ini 后缀
+
+        # 根据 INI 的 stem 查找对应的原图（尝试所有图像扩展名）
+        img_path = _find_file_for_stem(input_dir, stem, suffix="")
+        if img_path is None:
+            stats["missing_image"].append(ini_path.name)
+            continue
+
         ext = img_path.suffix
         stats["total"] += 1
 
-        # 对应的掩码和标签文件（输入侧，使用原始 stem 查找）
-        org_path = input_dir / f"{stem}{ORG_SUFFIX}{ext}"
-        roi_path = input_dir / f"{stem}{ROI_SUFFIX}{ext}"
-        ini_path = input_dir / f"{stem}.ini"
+        # 对应的掩码文件（尝试所有图像扩展名，不再限定与原图同扩展名）
+        org_path = _find_file_for_stem(input_dir, stem, suffix=ORG_SUFFIX)
+        roi_path = _find_file_for_stem(input_dir, stem, suffix=ROI_SUFFIX)
 
         # 输出文件名：匿名化时将中心+患者信息替换为哈希
         if anonymize:
@@ -390,7 +413,7 @@ def main():
             crop_params = None
 
         # --- 处理腺体掩码 (ORG1) ---
-        if org_path.exists():
+        if org_path is not None:
             if use_roi and crop_params is not None:
                 try:
                     cropped_gland = crop_mask_with_params(org_path, crop_params)
@@ -407,7 +430,7 @@ def main():
             stats["missing_gland_mask"].append(img_path.name)
 
         # --- 处理结节掩码 (ROI1) ---
-        if roi_path.exists():
+        if roi_path is not None:
             if use_roi and crop_params is not None:
                 try:
                     cropped_nodule = crop_mask_with_params(roi_path, crop_params)
@@ -423,23 +446,20 @@ def main():
         else:
             stats["missing_nodule_mask"].append(img_path.name)
 
-        # --- 提取标签 ---
+        # --- 提取标签（INI 一定存在，因为以 INI 为驱动扫描）---
         malignancy = -1
         tirads = -1
 
-        if ini_path.exists():
-            cp = parse_ini(ini_path)
-            pathologic_val = get_first_label_from_roi(cp, "pathologic")
-            malignancy = extract_malignancy(pathologic_val)
-            if malignancy != -1:
-                stats["has_malignancy"] += 1
+        cp = parse_ini(ini_path)
+        pathologic_val = get_first_label_from_roi(cp, "pathologic")
+        malignancy = extract_malignancy(pathologic_val)
+        if malignancy != -1:
+            stats["has_malignancy"] += 1
 
-            birads_val = get_first_label_from_roi(cp, "birads")
-            tirads = extract_tirads(birads_val)
-            if tirads != -1:
-                stats["has_tirads"] += 1
-        else:
-            stats["missing_ini"].append(img_path.name)
+        birads_val = get_first_label_from_roi(cp, "birads")
+        tirads = extract_tirads(birads_val)
+        if tirads != -1:
+            stats["has_tirads"] += 1
 
         labels.append({
             "filename": out_name,
@@ -462,7 +482,9 @@ def main():
     # ========================= 统计报告 =========================
     print(f"\n{'=' * 60}")
     print("处理完成!")
-    print(f"  原始图像:     {stats['total']}")
+    print(f"  INI 标签文件: {len(ini_files)}")
+    print(f"  有图像的:     {stats['total']}")
+    print(f"  无图像的:     {len(stats['missing_image'])}")
     if use_roi:
         print(f"  ROI 提取成功: {stats['roi_success']} / {stats['total']}")
         print(f"  ROI 提取失败: {stats['roi_failed']} / {stats['total']}")
@@ -473,6 +495,11 @@ def main():
     if anonymize:
         print(f"  匿名化文件名: {len(name_map)} 个")
 
+    if stats["missing_image"]:
+        print(f"\n  INI 无对应图像 ({len(stats['missing_image'])}):")
+        for name in stats["missing_image"]:
+            print(f"    - {name}")
+
     if stats["missing_gland_mask"]:
         print(f"\n  缺失腺体掩码 ({len(stats['missing_gland_mask'])}):")
         for name in stats["missing_gland_mask"]:
@@ -481,11 +508,6 @@ def main():
     if stats["missing_nodule_mask"]:
         print(f"\n  缺失结节掩码 ({len(stats['missing_nodule_mask'])}):")
         for name in stats["missing_nodule_mask"]:
-            print(f"    - {name}")
-
-    if stats["missing_ini"]:
-        print(f"\n  缺失标签文件 ({len(stats['missing_ini'])}):")
-        for name in stats["missing_ini"]:
             print(f"    - {name}")
 
     if stats["roi_errors"]:
