@@ -120,7 +120,7 @@ def load_labels(
     if isinstance(label_data, dict):
         label_data = list(label_data.values())
 
-    # 收集所有标签值，用于自动检测偏移
+    # 收集所有标签值，用于自动检测偏移（忽略负值等无效标签）
     raw_labels = []
     for item in label_data:
         if not isinstance(item, dict):
@@ -129,7 +129,9 @@ def load_labels(
             continue
         val = item[label_field]
         if val is not None and val != "":
-            raw_labels.append(int(val))
+            v = int(val)
+            if v >= 0:
+                raw_labels.append(v)
 
     if not raw_labels:
         raise ValueError(
