@@ -83,7 +83,7 @@ pretrained_weights:
     medsegx: ./infer_medsegx/checkpoints/medsegx_vit_b.pth
 
 # --- 输出根目录 ---
-output_root: ./results/nodule_one_dataset/ZJH-8K_autogluon
+output_root: ./results/nodule_one_dataset/ZJH-8K_TIRADS
 
 # --- 输出选项 ---
 # 分割任务是否保存预测掩码到 results/<task>/<model>/masks/
