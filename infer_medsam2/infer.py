@@ -115,9 +115,18 @@ def load_gt_mask(gt_path, target_h, target_w):
 
 
 def find_gt_file(gt_dir, stem):
-    """在 gt_dir 中查找与 stem 匹配的 mask 文件，返回路径或 None。"""
+    """在 gt_dir 中查找与 stem 匹配的 mask 文件，返回路径或 None。
+
+    支持大小写不敏感的扩展名匹配（如 .PNG / .png 均可）。
+    """
+    # 先尝试 SUPPORTED_EXTS 中的小写扩展名
     for ext in SUPPORTED_EXTS:
         gt_path = os.path.join(gt_dir, f"{stem}{ext}")
+        if os.path.isfile(gt_path):
+            return gt_path
+    # 再尝试大写扩展名（Linux 区分大小写）
+    for ext in SUPPORTED_EXTS:
+        gt_path = os.path.join(gt_dir, f"{stem}{ext.upper()}")
         if os.path.isfile(gt_path):
             return gt_path
     return None

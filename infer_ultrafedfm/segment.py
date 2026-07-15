@@ -88,10 +88,17 @@ class FlatImageDataset(Dataset):
 # GT mask loading
 # ---------------------------------------------------------------------------
 def find_gt_mask(gt_dir, basename):
-    """Find a GT mask file in gt_dir matching the given basename (any extension)."""
+    """Find a GT mask file in gt_dir matching the given basename (any extension).
+
+    支持大小写不敏感的扩展名匹配（如 .PNG / .png 均可）。
+    """
     stem = os.path.splitext(basename)[0]
     for ext in SUPPORTED_EXTS:
         candidate = os.path.join(gt_dir, stem + ext)
+        if os.path.isfile(candidate):
+            return candidate
+    for ext in SUPPORTED_EXTS:
+        candidate = os.path.join(gt_dir, stem + ext.upper())
         if os.path.isfile(candidate):
             return candidate
     # also try exact name

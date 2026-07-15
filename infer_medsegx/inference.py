@@ -95,9 +95,16 @@ def load_mask(path: str, h: int, w: int) -> np.ndarray:
 
 
 def find_gt_path(gt_dir: str, basename: str):
-    """Try common extensions for a GT mask matching *basename*."""
+    """Try common extensions for a GT mask matching *basename*.
+
+    支持大小写不敏感的扩展名匹配（如 .PNG / .png 均可）。
+    """
     for ext in sorted(MASK_EXTENSIONS):
         candidate = join(gt_dir, basename + ext)
+        if os.path.exists(candidate):
+            return candidate
+    for ext in sorted(MASK_EXTENSIONS):
+        candidate = join(gt_dir, basename + ext.upper())
         if os.path.exists(candidate):
             return candidate
     return None
