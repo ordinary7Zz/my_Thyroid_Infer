@@ -13,8 +13,8 @@
 datasets:
   gland_images:  ./datasets/TGVideo_PNG/test/image
   gland_masks:   ./datasets/TGVideo_PNG/test/mask
-  nodule_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/DDTI/all_seg/images
-  nodule_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/DDTI/all_seg/masks
+  nodule_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/DDTI/test/images
+  nodule_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/DDTI/test/masks
   binary_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/DDTI/all_seg/images
   binary_masks:  /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/DDTI/all_seg/masks
   tirads_images: ./datasets/Cine-Clip/test/images
