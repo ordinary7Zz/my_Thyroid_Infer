@@ -354,7 +354,6 @@ def load_label_json(json_path, label_field, class_names):
         elif isinstance(raw_label, (int, float)) and 1 <= int(raw_label) <= num_classes:
             label_idx = int(raw_label) - 1
         else:
-            print(f"  ⚠ 无法映射标签: {fname} {label_field}={raw_label}, 跳过")
             continue
 
         label_map[fname] = label_idx

@@ -339,7 +339,6 @@ def load_label_json(json_path: str, label_field: str, class_names: list):
             label_idx = int(raw_label) - 1
             remapped += 1
         else:
-            print(f"  ⚠ 无法映射标签: {fname} {label_field}={raw_label}, 跳过")
             continue
 
         label_map[fname] = label_idx
@@ -459,11 +458,7 @@ def run_evaluation(filenames, all_probs, label_map, class_names,
         per_sample.append((fname, true_label, pred_idx))
 
     if out_of_range:
-        print(f"  ⚠ 以下 {len(out_of_range)} 条样本标签超出范围 [0, {num_classes-1}]，已跳过:")
-        for fname, label in out_of_range[:10]:
-            print(f"    {fname}: {label}")
-        if len(out_of_range) > 10:
-            print(f"    ... 共 {len(out_of_range)} 条")
+        print(f"  ⚠ {len(out_of_range)} 条样本标签超出范围 [0, {num_classes-1}]，已跳过")
 
     if not y_true_list:
         print("  ⚠ 没有找到任何匹配的标签记录，无法评估。"

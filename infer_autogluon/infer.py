@@ -429,7 +429,6 @@ def load_label_json(json_path: str, label_field: str,
             label_idx = int(raw_label) - 1
             remapped += 1
         else:
-            print(f"  ⚠ 无法映射标签: {fname} {label_field}={raw_label}, 跳过")
             continue
 
         label_map[fname] = label_idx
@@ -474,7 +473,6 @@ def run_evaluation(filenames: List[str], proba_dict: dict,
 
         true_label_0based = label_map[fname]
         if true_label_0based < 0 or true_label_0based >= num_classes:
-            print(f"  ⚠ 标签超出范围: {fname} label={true_label_0based}, 跳过")
             continue
 
         # 构建 (num_classes,) 概率向量

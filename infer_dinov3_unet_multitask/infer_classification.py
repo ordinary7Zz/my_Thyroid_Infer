@@ -177,8 +177,6 @@ def load_labels(
         label = int(raw_label) - actual_offset
 
         if label < 0 or label >= num_classes:
-            print(f"[警告] 标签 {raw_label}（偏移后 {label}）超出范围 "
-                  f"[0, {num_classes - 1}]，跳过: {filename}")
             continue
 
         norm_filename = normalize_rel_path(filename)
