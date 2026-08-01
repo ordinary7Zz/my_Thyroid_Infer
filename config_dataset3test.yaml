@@ -88,7 +88,7 @@ pretrained_weights:
     medsegx: ./infer_medsegx/checkpoints/medsegx_vit_b.pth
 
 # --- 输出根目录 ---
-output_root: ./results_dino_mask
+output_root: ./results_dino_mask/dataset_3_test
 
 # --- 输出选项 ---
 # use_dino_mask_for_cls 开启时自动开启 save_masks
