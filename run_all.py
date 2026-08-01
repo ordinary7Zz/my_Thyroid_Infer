@@ -42,8 +42,8 @@ DEFAULT_CONFIG_PATH = ROOT / "config.yaml"
 # 运行时由 main() 从 YAML 文件加载填充；模块级保留空 dict 以便函数引用
 CONFIG: dict = {}
 
-# 推理模式: "finetune"（默认，使用微调权重）或 "pretrained"（使用预训练权重）
-MODE: str = "finetune"
+# 推理模式: "pretrained"（默认，使用预训练权重）或 "finetune"（使用微调权重）
+MODE: str = "pretrained"
 
 # CONFIG 必须包含的顶层字段（用于加载时的最小校验）
 _REQUIRED_CONFIG_KEYS = (
@@ -887,8 +887,8 @@ def main():
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH),
                         help=f"配置文件路径（默认: {DEFAULT_CONFIG_PATH}）")
     parser.add_argument("--mode", choices=["finetune", "pretrained"], default="pretrained",
-                        help="推理模式: finetune（默认，使用微调权重）/ "
-                             "pretrained（使用预训练权重，跳过 transunet/ultrafedfm）")
+                        help="推理模式: pretrained（默认，使用预训练权重）/ "
+                             "finetune（使用微调权重）")
     parser.add_argument("--tasks", nargs="+",
                         default=["gland", "nodule", "binary", "tirads"],
                         choices=list(TASKS.keys()),
