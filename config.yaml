@@ -50,8 +50,8 @@ weights:
     biomedclip:            ./infer_biomedclip/checkpoints/BM_2cls/best_model.pth
     medsiglip:             ./infer_medsiglip/checkpoints/BM_2cls/best_model.pt
     ultrafedfm:            ./infer_ultrafedfm/checkpoints/checkpoint-best_auroc.pth
-    dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/BM_2cls/dino_unet_gamtl_train_multitask_dataset_3_epoch_50.pth
-    autogluon:             ./infer_autogluon/checkpoints/binary
+    dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/BM_2cls/dino_unet_train_multitask_all_datasets_epoch_50.pth
+    autogluon:             ./infer_autogluon/checkpoints/binary/autogluon_model_20260204_140346
 
   # 分类 — TIRADS 五分类
   tirads:

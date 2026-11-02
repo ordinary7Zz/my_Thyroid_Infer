@@ -1,0 +1,102 @@
+# B2 外测队列：供 run_b2_infer_batch.py 生成 run_all 配置并写入 b2_exports
+# 与 ThyroidCascadeAgent/docs/revision/b2/cohort_tasks.yaml 对齐（不含 nhc）
+
+data_root: /mnt/wangbd8/workspace/DataSets/ThyroidAgent
+exports_root: ../../b2_exports
+results_root: ./results/b2
+
+# 分类：BiomedCLIP/MedSigLIP/UltraFedFM 推理为整图 folder（无 mask 裁剪）
+classification_inference_input: image_only
+# 分割：按模型写入 manifest（见 convert_to_exports.SEG_INFERENCE_BY_MODEL）；外测仍传 --gt_dir 仅算 Dice/HD95
+
+seg_models: [transunet, medsam2, medsegx, ultrafedfm]
+cls_models: [biomedclip, medsiglip, ultrafedfm, repvit, lsnet, resnet50]
+
+cohorts:
+  tn3k:
+    base_config: ../config_nodule_TN3K.yaml
+    tasks: [segmentation, classification]
+    patient_level: false
+    segmentation:
+      images: train_val_test/TN3K/test/images
+      masks: train_val_test/TN3K/test/masks
+    classification:
+      images: train_val_test/TN3K/test/images
+      masks: train_val_test/TN3K/test/masks
+      label_file: train_val_test/TN3K/test/TN3K_test_label.json
+      test_cls_dir: train_val_test/TN3K/test_cls
+
+  tn5k:
+    base_config: ../config_nodule_TN5K.yaml
+    tasks: [segmentation, classification]
+    patient_level: false
+    segmentation:
+      images: train_val_test/TN5K/test/images
+      masks: train_val_test/TN5K/test/masks
+    classification:
+      images: train_val_test/TN5K/test/images
+      masks: train_val_test/TN5K/test/masks
+      label_file: train_val_test/TN5K/test/TN5K_test_label.json
+      test_cls_dir: train_val_test/TN5K/test_cls
+
+  thyroidxl:
+    base_config: ../config_nodule_ThyroidXL.yaml
+    tasks: [segmentation, classification]
+    patient_level: true
+    segmentation:
+      images: train_val_test/ThyroidXL/test/images
+      masks: train_val_test/ThyroidXL/test/masks
+    classification:
+      images: train_val_test/ThyroidXL/test/images
+      masks: train_val_test/ThyroidXL/test/masks
+      label_file: train_val_test/ThyroidXL/test/ThyroidXL_test_label.json
+      test_cls_dir: train_val_test/ThyroidXL/test_cls
+
+  zjh8k:
+    base_config: ../config_nodule_ZJH-8K.yaml
+    tasks: [segmentation, classification]
+    patient_level: true
+    segmentation:
+      images: train_val_test/ZJH-8K/images
+      masks: train_val_test/ZJH-8K/masks
+    classification:
+      images: train_val_test/ZJH-8K/images
+      masks: train_val_test/ZJH-8K/masks
+      label_file: train_val_test/ZJH-8K/ZJH-8K_BM_labels.json
+      test_cls_dir: train_val_test/ZJH-8K/test_cls
+      test_cls_name: zjh8k
+
+  ddti_seg:
+    base_config: ../config_nodule_DDTI.yaml
+    tasks: [segmentation]
+    patient_level: false
+    segmentation:
+      images: train_val_test/DDTI/all_seg/images
+      masks: train_val_test/DDTI/all_seg/masks
+
+  ddti_cls:
+    base_config: ../config_nodule_TN3K.yaml
+    tasks: [classification]
+    patient_level: false
+    # 与 ThyroidCascadeAgent config/b5/ddti_cls.yaml 一致（pipeline DDTI_cls）
+    classification:
+      images: train_val_test/DDTI_Classification/all/images_processed
+      masks: train_val_test/DDTI_Classification/all/images_processed
+      label_file: train_val_test/DDTI_Classification/all/DDTI_Classification_test_label.json
+      test_cls_dir: train_val_test/DDTI_Classification/all_cls
+
+  rjh7k:
+    base_config: ../config_nodule_RJH-7K.yaml
+    tasks: [segmentation]
+    patient_level: false
+    segmentation:
+      images: augtrain_PNG/image
+      masks: augtrain_PNG/mask
+
+  pktn:
+    base_config: ../config_nodule_PKTN.yaml
+    tasks: [segmentation]
+    patient_level: false
+    segmentation:
+      images: train_val_test/PKTN/test/images
+      masks: train_val_test/PKTN/test/masks

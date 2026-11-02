@@ -4,8 +4,10 @@
 # =============================================================
 
 # ---------------------- 配置 ----------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INFER_MULTITASK_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 IMAGE_DIR="/mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/test/images/"
-CHECKPOINT="/mnt/wangbd8/workspace/ThyroidAgent/dino_unet_multitask/checkpoints/TIRADS/train_TIRADS_Cine-Clip/dino_unet_train_TIRADS_Cine-Clip_epoch_50.pth"
+CHECKPOINT="$INFER_MULTITASK_ROOT/checkpoints/TIRADS_5cls/dino_unet_train_TIRADS_Cine-Clip_epoch_50.pth"
 LABEL_FILE="/mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/Cine-Clip/test/Cine-Clip_test_label.json"
 LABEL_FIELD="tirads"
 

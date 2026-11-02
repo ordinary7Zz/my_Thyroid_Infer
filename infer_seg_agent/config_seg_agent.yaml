@@ -16,7 +16,7 @@ agent_llm:
 # --- 本地 GPT-OSS 配置（当 agent.type = "local_gpt_oss" 时生效）---
 agent_local_llm:
   # GPT-OSS-20B 模型路径（需提前下载）
-  model_path: "/root/private_data/hf_cache/models--openai--gpt-oss-20b/snapshots/6cee5e81ee83917806bbde320786a8fb61efebee/"
+  model_path: "./pretrained_models/gpt-oss-20b/"
   device_map: "auto"
   torch_dtype: "bfloat16"
   trust_remote_code: true

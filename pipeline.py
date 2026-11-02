@@ -56,7 +56,7 @@ PREPARE_DATA_SCRIPT = ROOT / "my_ThyroidROI" / "newcode" / "prepare_data.py"
 # 代码级默认值（当 config.yaml 中没有 prepare 段时使用）
 _FALLBACK_INPUT_DIR = ROOT / "datasets" / "甲状腺私有数据" / "新建文件夹"
 _FALLBACK_PROCESSED_DIR = ROOT / "datasets" / "processed"
-_FALLBACK_CHECKPOINT = "/mnt/wangbd8/workspace/ThyroidAgent/ThyroidROI/outputs/best_dice_model.pth"
+_FALLBACK_CHECKPOINT = ROOT / "my_ThyroidROI" / "outputs" / "best_dice_model.pth"
 
 
 def _load_prepare_config(config_path):

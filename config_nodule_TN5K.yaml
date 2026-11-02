@@ -50,8 +50,11 @@ weights:
     biomedclip:            ./infer_biomedclip/checkpoints/BM_2cls/best_model.pth
     medsiglip:             ./infer_medsiglip/checkpoints/BM_2cls/best_model.pt
     ultrafedfm:            ./infer_ultrafedfm/checkpoints/BM_2cls/checkpoint-best_acc.pth
-    dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/BM_2cls/dino_unet_gamtl_train_multitask_dataset_3_epoch_50.pth
-    autogluon:             ./infer_autogluon/checkpoints/binary
+    dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/BM_2cls/dino_unet_train_multitask_all_datasets_epoch_50.pth
+    autogluon:             ./infer_autogluon/checkpoints/binary/autogluon_model_20260204_140346
+    repvit:                ./infer_repvit/checkpoints/BM/repvit_m1_0_224_0.025_0.001_0.25/checkpoint_best.pth
+    lsnet:                 ./infer_lsnet/checkpoints/checkpoint_best.pth
+    resnet50:              ./infer_resnet50/checkpoints/resnet50_thyroid_cls_epoch_50.pth
 
   # 分类 — TIRADS 五分类
   tirads:

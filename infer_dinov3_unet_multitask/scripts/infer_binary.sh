@@ -9,8 +9,10 @@
 # =============================================================
 
 # ---------------------- 配置 ----------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INFER_MULTITASK_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 IMAGE_DIR="/mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/images"
-CHECKPOINT="/mnt/wangbd8/workspace/ThyroidAgent/dino_unet_multitask/checkpoints/train_BM/gamtl_train_multitask_dataset_3/dino_unet_gamtl_train_multitask_dataset_3_epoch_50.pth"
+CHECKPOINT="$INFER_MULTITASK_ROOT/checkpoints/BM_2cls/dino_unet_train_multitask_all_datasets_epoch_50.pth"
 LABEL_FILE="/mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/TN3K_test_label.json"
 LABEL_FIELD="malignancy"
 

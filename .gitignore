@@ -74,3 +74,7 @@ wheels/
 results/
 results_*/
 zips/
+
+# 未使用的 GPT-OSS 本地权重（可整目录删除以释放磁盘）
+gptoss/
+gptoss_pth/

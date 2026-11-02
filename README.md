@@ -59,8 +59,12 @@ my_Thyroid_infer/
 ├── infer_medsam2/                    # MedSAM2 分割推理
 ├── infer_medsegx/                    # MedSegX 分割推理
 ├── infer_medsiglip/                  # MedSigLIP 分类推理
+├── infer_repvit/                     # RepViT 良恶性分类（代码+权重自包含）
+├── infer_lsnet/                      # LSNet 良恶性分类
+├── infer_resnet50/                   # ResNet-50 良恶性分类
 ├── infer_transunet/                  # TransUNet 分割推理
 ├── infer_ultrafedfm/                 # UltraFedFM 分割 + 分类推理
+├── baseline_export/                  # B2 外测批跑配置与 b2_exports 转换
 ├── infer_seg_agent/                  # 分割 Agent（多模型掩码选择/融合）
 ├── infer_cls_agent/                  # 分类 Agent（多模型预测选择/融合）
 ├── infer_explain/                    # 可解释性分析（SHAP 分类 + GradCAM 分割）
@@ -90,6 +94,11 @@ my_Thyroid_infer/
 | **MedSigLIP** | MedSigLIP-448 | `infer_medsiglip/inference.py` | SigLIP 视觉编码器 + 分类头 |
 | **DINOv3-UNet (多任务)** | DINOv3 ViT-S | `infer_dinov3_unet_multitask/infer_classification.py` | 分割模型的多任务分类头 |
 | **UltraFedFM** | ViT-B | `infer_ultrafedfm/classify.py` | 联邦预训练 ViT 分类 |
+| **RepViT** | RepViT-M1.0 | `infer_repvit/infer_binary.py` | ImageFolder `test_cls`；权重见 `infer_repvit/checkpoints/` |
+| **LSNet** | LSNet-T | `infer_lsnet/infer_binary.py` | 同上 |
+| **ResNet-50** | ResNet-50 | `infer_resnet50/infer_binary.py` | `binary_images` + `label_json` |
+
+扩展批跑：`python run_all_extended.py`（在 `run_all.py` 上增加上表三模型）。
 
 ### Agent 模型（多模型选择/融合）
 

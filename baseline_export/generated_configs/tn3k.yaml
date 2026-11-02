@@ -1,0 +1,71 @@
+datasets:
+  gland_images: ./datasets/TGVideo_PNG/test/image
+  gland_masks: ./datasets/TGVideo_PNG/test/mask
+  nodule_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/images
+  nodule_masks: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/masks
+  binary_images: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/images
+  binary_masks: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/masks
+  tirads_images: ./datasets/Cine-Clip/test/images
+  tirads_masks: ./datasets/Cine-Clip/test/masks
+labels:
+  binary_json: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test/TN3K_test_label.json
+  binary_field: malignancy
+  tirads_json: ./datasets/Cine-Clip/test/Cine-Clip_test_label.json
+  tirads_field: tirads
+weights:
+  gland:
+    dinov3_unet: ./infer_dinov3_unet/checkpoints/TGVideo/dino_unet_train_TGVideo_epoch_30.pth
+    medsam2: ./infer_medsam2/checkpoints/TGVideo/checkpoint_10.pt
+    medsegx: ./infer_medsegx/checkpoints/TGVideo/checkpoint_epoch_29.pth
+    transunet: ./infer_transunet/checkpoints/TGVideo/epoch_49.pth
+    ultrafedfm: ./infer_ultrafedfm/checkpoints/TGVideo/epoch_bestDice.pth
+  nodule:
+    dinov3_unet: ./infer_dinov3_unet/checkpoints/Nodule/dino_unet_train_dataset_4_epoch_50.pth
+    medsam2: ./infer_medsam2/checkpoints/Nodule/checkpoint_15.pt
+    medsegx: ./infer_medsegx/checkpoints/Nodule/model_best.pth
+    transunet: ./infer_transunet/checkpoints/Nodule/epoch_49.pth
+    ultrafedfm: ./infer_ultrafedfm/checkpoints/Nodule/epoch_bestDice.pth
+  binary:
+    biomedclip: ./infer_biomedclip/checkpoints/BM_2cls/best_model.pth
+    medsiglip: ./infer_medsiglip/checkpoints/BM_2cls/best_model.pt
+    ultrafedfm: ./infer_ultrafedfm/checkpoints/BM_2cls/checkpoint-best_acc.pth
+    dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/BM_2cls/dino_unet_train_multitask_all_datasets_epoch_50.pth
+    autogluon: ./infer_autogluon/checkpoints/binary/autogluon_model_20260204_140346
+    repvit: ./infer_repvit/checkpoints/BM/repvit_m1_0_224_0.025_0.001_0.25/checkpoint_best.pth
+    lsnet: ./infer_lsnet/checkpoints/checkpoint_best.pth
+    resnet50: ./infer_resnet50/checkpoints/resnet50_thyroid_cls_epoch_50.pth
+  tirads:
+    biomedclip: ./infer_biomedclip/checkpoints/TIRADS_5cls/best_model.pth
+    medsiglip: ./infer_medsiglip/checkpoints/TIRADS_5cls/best_model.pt
+    ultrafedfm: ./infer_ultrafedfm/checkpoints/TIRADS_5cls/checkpoint-best_acc.pth
+    dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/TIRADS_5cls/dino_unet_train_TIRADS_Cine-Clip_epoch_50.pth
+    autogluon: ./infer_autogluon/checkpoints/tirads
+pretrained:
+  biomedclip_dir: ./infer_biomedclip/pretrained_models/biomedclip
+  medsiglip_dir: ./infer_medsiglip/pretrained_models/medsiglip-448
+  medsegx_sam_dir: ./infer_medsegx/pretrained_models/SAM
+  medsam2_config: ./infer_medsam2/sam2/configs/sam2.1_hiera_t512.yaml
+  radiomics_params: ./infer_autogluon/radiomics_2d.yaml
+pretrained_weights:
+  gland:
+    medsam2: ./infer_medsam2/checkpoints/MedSAM2_latest.pt
+    medsegx: ./infer_medsegx/checkpoints/medsegx_vit_b.pth
+  nodule:
+    medsam2: ./infer_medsam2/checkpoints/MedSAM2_latest.pt
+    medsegx: ./infer_medsegx/checkpoints/medsegx_vit_b.pth
+output_root: /mnt/wangbd8/workspace/ThyroidAgent/my_Thyroid_Infer/results/b2/tn3k
+save_masks: false
+use_dino_mask_for_cls: false
+prepare:
+  input_dir: ./datasets/甲状腺私有数据/新建文件夹
+  output_dir: ./datasets/processed
+  roi_checkpoint: ./my_ThyroidROI/outputs/best_dice_model.pth
+device: cuda
+n_bootstrap: 2000
+seg_agent:
+  source_task: nodule
+cls_agent:
+  source_task: binary
+extended_binary:
+  test_cls_dir: /mnt/wangbd8/workspace/DataSets/ThyroidAgent/train_val_test/TN3K/test_cls
+  test_cls_name: tn3k

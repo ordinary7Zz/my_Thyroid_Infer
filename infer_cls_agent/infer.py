@@ -50,6 +50,15 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+
+def _resolve_project_path(path: Optional[str]) -> Optional[str]:
+    if not path:
+        return path
+    p = Path(path)
+    if p.is_absolute():
+        return str(p.resolve())
+    return str((PROJECT_ROOT / p).resolve())
+
 from models.base_model import ModelOutput
 from agent.classification_agent import (
     LLMClassificationAgent,
@@ -546,7 +555,7 @@ def main():
             top_k=agent_cfg.get("top_k", 1),
             backend_type=agent_type,
             base_url=llm_cfg.get("base_url"),
-            local_model_path=local_llm_cfg.get("model_path"),
+            local_model_path=_resolve_project_path(local_llm_cfg.get("model_path")),
             local_device_map=local_llm_cfg.get("device_map", "auto"),
             local_torch_dtype=local_llm_cfg.get("torch_dtype", "bfloat16"),
             local_trust_remote_code=local_llm_cfg.get("trust_remote_code", True),

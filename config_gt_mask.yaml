@@ -51,8 +51,8 @@ weights:
     biomedclip:            ./infer_biomedclip/checkpoints/BM_2cls/best_model.pth
     medsiglip:             ./infer_medsiglip/checkpoints/BM_2cls/best_model.pt
     ultrafedfm:            ./infer_ultrafedfm/checkpoints/checkpoint-best_auroc.pth
-    dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/BM_2cls/dino_unet_gamtl_train_multitask_dataset_3_epoch_50.pth
-    autogluon:             /mnt/wangbd8/workspace/ThyroidAgent/dino_unet_multitask/pyradiomics_train/autogluon_model/gtmask/dataset_3/autogluon_model_20260106_215755
+    dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/BM_2cls/dino_unet_train_multitask_all_datasets_epoch_50.pth
+    autogluon:             ./infer_autogluon/checkpoints/binary/autogluon_model_20260204_140346
 
   # 分类 — TIRADS 五分类
   tirads:
@@ -60,7 +60,7 @@ weights:
     medsiglip:             ./infer_medsiglip/checkpoints/TIRADS_5cls/best_model.pt
     ultrafedfm:            ./infer_ultrafedfm/checkpoints/checkpoint-best_auroc.pth
     dinov3_unet_multitask: ./infer_dinov3_unet_multitask/checkpoints/TIRADS_5cls/dino_unet_train_TIRADS_Cine-Clip_epoch_50.pth
-    autogluon:             ./infer_autogluon/checkpoints/binary
+    autogluon:             ./infer_autogluon/checkpoints/binary/autogluon_model_20260204_140346
 
 # --- 预训练骨干模型目录 ---
 pretrained:
