@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import numpy as np
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 
 from segmentation.metrics import compute_dice, compute_hd95
 
@@ -137,14 +137,18 @@ def evaluate_pipeline(
     output_dir: str,
     image_io=None,
     gt_mask_dir: Optional[str] = None,
+    selected_image_names: Optional[Sequence[str]] = None,
+    selected_masks: Optional[Sequence] = None,
 ) -> dict:
     """评估 pipeline 结果，打印并保存指标。
 
     Args:
         results: run_batch 返回的 results 列表
-        output_dir: 输出目录（用于读取 selected_masks.npz）
+        output_dir: 输出目录（用于读取 selected_masks.npz，除非传入内存 mask）
         image_io: ImageIO 实例（用于加载 GT mask）
         gt_mask_dir: GT mask 目录，优先使用；未提供时回退到从 config 读取
+        selected_image_names: 可选，与 selected_masks 成对传入时不再读 npz
+        selected_masks: 可选，Agent 选定的分割 mask（与 image_names 对齐）
 
     Returns:
         dict: 评估指标
@@ -156,19 +160,31 @@ def evaluate_pipeline(
     metrics: dict = {}
 
     # ===== 分割指标 =====
-    seg_evals = []
     selected_masks_path = Path(output_dir) / "intermediate" / "selected_masks.npz"
 
-    has_gt_mask = any("true_label" in r for r in results)
-    if not selected_masks_path.exists():
-        print("⚠️ selected_masks.npz 不存在，跳过分割评估")
-    elif not image_io:
-        print("⚠️ 未提供 ImageIO，跳过分割评估")
-    else:
-        # 加载选定 mask
+    sel_img_names: list[str] = []
+    sel_masks: list = []
+    if selected_image_names is not None and selected_masks is not None:
+        if len(selected_image_names) != len(selected_masks):
+            print("⚠️ selected_image_names 与 selected_masks 长度不一致，跳过分割评估")
+        elif len(selected_image_names) == 0:
+            print("⚠️ 无选定 mask，跳过分割评估")
+        else:
+            sel_img_names = list(selected_image_names)
+            sel_masks = list(selected_masks)
+    elif selected_masks_path.exists():
         data = np.load(str(selected_masks_path), allow_pickle=True)
         sel_img_names = list(data["image_names"])
         sel_masks = list(data["selected_masks"])
+    else:
+        print("⚠️ selected_masks.npz 不存在且无内存 mask，跳过分割评估")
+
+    if sel_img_names and not image_io:
+        print("⚠️ 未提供 ImageIO，跳过分割评估")
+        sel_img_names = []
+        sel_masks = []
+
+    if sel_img_names and image_io:
 
         # 从 config 中获取 gt_mask_dir（通过 results 不可用，需要外部传入）
         # 这里尝试从 results 的 image_name 匹配 GT mask

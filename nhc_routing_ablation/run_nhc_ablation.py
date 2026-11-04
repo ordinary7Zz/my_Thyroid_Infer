@@ -8,6 +8,7 @@ Steps (default):
   3. B3 汇总 → ``_summary/b3_routing_table.csv``
   4. 七策略 B7 → ``_center_analysis/<mode>/`` + ``heterogeneity_by_strategy.csv``（结节/分类）
   5. 腺体分割 B7（单路径 ``_center_analysis/gland/``，非七策略）→ 中心 gland + ``gland_dice`` 异质性，并追加到 ``heterogeneity_by_strategy.csv``
+  6. 打 zip → 自动删除 Phase1–2 seg/cls、各策略 ``intermediate/``、遗留 ``selected_masks.npz``（``--keep-cache`` 可保留）
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -50,6 +52,12 @@ from center_analysis import (  # noqa: E402
     LEGACY_GLAND_CENTER_SUBDIR,
     run_center_analysis_all_strategies,
     run_gland_center_analysis,
+)
+from disk_cleanup import (  # noqa: E402
+    DiskCleanupReport,
+    cleanup_nhc_ablation_disk_cache,
+    disk_cleanup_enabled,
+    format_cleanup_summary,
 )
 
 
@@ -145,8 +153,58 @@ def _shell_quote(path: Path) -> str:
     return "'" + str(path.resolve()).replace("'", "'\"'\"'") + "'"
 
 
-def _print_result_download_paths(*, output_root: Path, shared_intermediate: Path) -> None:
-    """End-of-run hint: one primary download dir + optional local cleanup."""
+def _zip_output_root(root: Path) -> Path | None:
+    """Pack output_root into sibling ``<name>.zip`` (skip if SKIP_RESULT_ZIP=1)."""
+    if os.environ.get("SKIP_RESULT_ZIP", "").strip().lower() in ("1", "true", "yes"):
+        return None
+    if not root.is_dir():
+        return None
+    zip_base = root.parent / root.name
+    zip_path = zip_base.with_suffix(".zip")
+    if zip_path.is_file():
+        zip_path.unlink()
+    print(f"\n正在压缩结果目录 → {zip_path} …", flush=True)
+    try:
+        created = shutil.make_archive(str(zip_base), "zip", root_dir=str(root))
+        out = Path(created).resolve()
+        size_mb = out.stat().st_size / (1024 * 1024)
+        print(f"✓ 已生成 zip（约 {size_mb:.1f} MiB）", flush=True)
+        return out
+    except OSError as e:
+        print(f"⚠ 压缩失败 ({e})，请手动打包目录: {root}", flush=True)
+        return None
+
+
+def _record_disk_cleanup_in_manifest(output_root: Path, report: DiskCleanupReport) -> None:
+    manifest_path = output_root / "_run_manifest.json"
+    if not manifest_path.is_file():
+        return
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    data["disk_cleanup"] = {
+        "at": datetime.now(timezone.utc).isoformat(),
+        "bytes_freed": report.bytes_freed,
+        "freed_mib": round(report.freed_mib, 2),
+        "shared_seg_removed": report.shared_seg_removed,
+        "shared_cls_removed": report.shared_cls_removed,
+        "strategy_intermediate_dirs_removed": report.strategy_intermediate_dirs_removed,
+        "selected_masks_removed": report.selected_masks_removed,
+        "bundle_staging_removed": report.bundle_staging_removed,
+    }
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _print_result_download_paths(
+    *,
+    output_root: Path,
+    shared_intermediate: Path,
+    zip_path: Path | None,
+    cleanup_report: DiskCleanupReport | None = None,
+) -> None:
+    """End-of-run hint: zip download + disk cleanup summary."""
     root = output_root.resolve()
     mapping = root / ANON_MAPPING_FILENAME
     staging = (RESULTS_ROOT / "_config_staging").resolve()
@@ -156,8 +214,14 @@ def _print_result_download_paths(*, output_root: Path, shared_intermediate: Path
     print("\n" + "=" * 60, flush=True)
     print("下载说明（从私有机拷出结果）", flush=True)
     print("=" * 60, flush=True)
-    print("  ▶ 只需下载下面这一个目录（整目录打包/scp 即可，不必逐个策略单独拷）:", flush=True)
-    print(f"     {_shell_quote(root)}", flush=True)
+    if zip_path is not None:
+        print("  ▶ 只需拷贝下面这一个 zip 文件（scp / 网盘 / U 盘均可）:", flush=True)
+        print(f"     {_shell_quote(zip_path)}", flush=True)
+        print("", flush=True)
+        print(f"  （解压后与目录等价，源目录: {_shell_quote(root)}）", flush=True)
+    else:
+        print("  ▶ 请打包/拷贝下面这一个目录（整目录 scp 即可，不必逐个策略单独拷）:", flush=True)
+        print(f"     {_shell_quote(root)}", flush=True)
     print("", flush=True)
     print("  该目录内已包含:", flush=True)
     print("    · _summary/          汇总表 b3_routing_table.csv 等", flush=True)
@@ -168,7 +232,7 @@ def _print_result_download_paths(*, output_root: Path, shared_intermediate: Path
         print(f"    · {ANON_MAPPING_FILENAME}           （未复制到结果目录）", flush=True)
     mode_names = ", ".join(row["mode"] for row in STRATEGY_ROWS)
     print(f"    · {mode_names}/", flush=True)
-    print("      各策略的 b3_metrics.json、results.json、selected_masks.npz 等", flush=True)
+    print("      各策略的 b3_metrics.json、results.json、per_image_*_metrics.jsonl 等", flush=True)
     center_root = root / "_center_analysis"
     if center_root.is_dir():
         print("    · _center_analysis/   七策略中心性能 + I²/τ²（R18–R20 制表用 CSV）", flush=True)
@@ -182,20 +246,25 @@ def _print_result_download_paths(*, output_root: Path, shared_intermediate: Path
                 flush=True,
             )
     print("", flush=True)
-    print("  ▶ 一般不需要下载（留在私有机即可）:", flush=True)
-    print(f"     Phase1–2 专家缓存: {shared}", flush=True)
+    print("  ▶ 留在私有机、不必下载:", flush=True)
     print(f"     合并用 staging 配置: {staging}", flush=True)
     print("-" * 60, flush=True)
-    print("私有机磁盘清理（可选；metrics 已拷走后若不再复跑 Phase1–2 分割）", flush=True)
-    if seg_cache.is_dir():
-        npz_count = sum(1 for p in seg_cache.glob("*.npz") if p.is_file())
-        print(f"  分割 npz 目录: {seg_cache} （{npz_count} 个 *.npz）", flush=True)
-        print("  确认后可执行:", flush=True)
-        print(f"    rm -rf {_shell_quote(seg_cache)}", flush=True)
+    if cleanup_report is not None:
+        print("私有机磁盘清理（已自动执行）", flush=True)
+        print(f"  {format_cleanup_summary(cleanup_report)}", flush=True)
+        if seg_cache.is_dir():
+            print(f"  ⚠ 仍存在 {seg_cache}（未删或部分失败）", flush=True)
     else:
-        print(f"  分割 npz 目录: {seg_cache} （不存在）", flush=True)
+        print("私有机磁盘清理（未执行）", flush=True)
+        print(
+            "  保留 Phase1–2 缓存；复跑加 --keep-cache 或 NHC_ABLATION_KEEP_CACHE=1。",
+            flush=True,
+        )
+        if seg_cache.is_dir():
+            npz_count = sum(1 for p in seg_cache.glob("*.npz") if p.is_file())
+            print(f"  分割 npz: {seg_cache} （{npz_count} 个 *.npz）", flush=True)
     print(
-        "  说明: 只删 seg/ 不影响已生成的 b3_metrics；各策略下 selected_masks.npz 仍在下载目录内。",
+        "  表数字来源: 各策略 b3_metrics / per_image_*_metrics.jsonl；不含 selected_masks.npz。",
         flush=True,
     )
     print("=" * 60, flush=True)
@@ -300,6 +369,11 @@ def main() -> int:
         "--gland-smoke-reference-mode",
         default=None,
         help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--keep-cache",
+        action="store_true",
+        help="Do not delete Phase1–2 seg/cls cache or strategy intermediate/ after run",
     )
     args = parser.parse_args()
     if getattr(args, "skip_gland_smoke", False):
@@ -482,7 +556,21 @@ def main() -> int:
         else:
             print("⚠ 腺体 B7 跳过：无 label_file", file=sys.stderr)
 
-    _print_result_download_paths(output_root=output_root, shared_intermediate=shared)
+    cleanup_report: DiskCleanupReport | None = None
+    zip_path = _zip_output_root(output_root.resolve())
+    if disk_cleanup_enabled(keep_cache=args.keep_cache):
+        cleanup_report = cleanup_nhc_ablation_disk_cache(output_root, shared)
+        _record_disk_cleanup_in_manifest(output_root, cleanup_report)
+        print(f"\n✓ {format_cleanup_summary(cleanup_report)}", flush=True)
+    else:
+        print("\n✓ 保留 Phase1–2 与 intermediate 缓存（--keep-cache / NHC_ABLATION_KEEP_CACHE=1）", flush=True)
+
+    _print_result_download_paths(
+        output_root=output_root,
+        shared_intermediate=shared,
+        zip_path=zip_path,
+        cleanup_report=cleanup_report,
+    )
 
     print("\n策略编号说明:", CONFIG_DIR / "README_STRATEGIES.md", flush=True)
     return 0

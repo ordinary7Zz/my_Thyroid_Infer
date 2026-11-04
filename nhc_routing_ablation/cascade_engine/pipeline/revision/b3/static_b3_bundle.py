@@ -2,7 +2,7 @@
 B3 静态策略 bundle：单次扫图，对多种 routing_mode 同时产出结果。
 
 共享：预加载 intermediate、逐图 judge_batch（受 pipeline.phase3_expert_judge 控制）、共识 Path A/B。
-每 entry：独立 output 子目录（selected_masks、results、b3_metrics）。
+每 entry：独立 output 子目录（results、b3_metrics、per_image_seg_metrics.jsonl；不落盘 selected_masks.npz）。
 """
 
 from __future__ import annotations
@@ -561,7 +561,6 @@ def run_static_b3_bundle(
 
         sel_names: list[str] = []
         sel_masks: list[np.ndarray] = []
-        seg_decisions_serialized: list[dict] = []
 
         if run_segmentation and seg_mode:
             for img_name in img_names:
@@ -570,12 +569,6 @@ def run_static_b3_bundle(
                     continue
                 sel_names.append(img_name)
                 sel_masks.append(row["mask"])
-                seg_decisions_serialized.append(row["decision"])
-
-            sel_path = out_dir / "intermediate" / "selected_masks.npz"
-            CascadePipeline._save_selected_masks_npz(
-                sel_path, sel_names, sel_masks, seg_decisions_serialized
-            )
 
         results: list[dict] = []
         if run_classification and cls_mode:
@@ -668,6 +661,8 @@ def run_static_b3_bundle(
                 str(out_dir),
                 image_io=pipeline.image_io,
                 gt_mask_dir=gt_mask_dir,
+                selected_image_names=sel_names if run_segmentation and seg_mode else None,
+                selected_masks=sel_masks if run_segmentation and seg_mode else None,
             )
             run_label = entry.run_id
             b3 = build_b3_metrics(
