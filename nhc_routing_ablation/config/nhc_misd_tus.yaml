@@ -1,7 +1,7 @@
 # NHC full cohort — B3 ablation (strategies 1–6, 8). Strategy 7 (LLM) omitted on NHC.
 # Launched via: my_Thyroid_Infer/nhc_routing_ablation/run_seven_strategies.py
 #
-# model_path / model_dir: relative to my_Thyroid_Infer (materialized to absolute paths before Cascade runs).
+# model_path / model_dir: relative to my_Thyroid_Infer (materialized to absolute paths before engine runs).
 shared:
   agent_llm:
     api_key_env: DASHSCOPE_API_KEY
@@ -92,7 +92,7 @@ pipeline:
     - static_rule
     - max_confidence
     - oracle
-    shared_intermediate: output/NHC-MISD-TUS/pipeline_run/intermediate
+    shared_intermediate: results/nhc_routing_ablation/_intermediate/nhc_misd_tus/pipeline_run/intermediate
     output_root: results/nhc_routing_ablation/nhc_misd_tus
     force_phase3: true
     summarize: true

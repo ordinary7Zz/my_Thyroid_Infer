@@ -1,1 +1,1 @@
-"""NHC seven-strategy routing ablation entry (orchestrates ThyroidCascadeAgent B3)."""
+"""NHC seven-strategy routing ablation (engine vendored under cascade_engine/)."""

@@ -1,0 +1,67 @@
+# 2D Radiomics config — 与 pyradiomics_train/radiomics_2d.yaml 完全一致
+# 用于 AutoGluon 推理时的特征提取，确保特征分布与训练时相同。
+#
+# 关键配置：
+#   normalize: true + normalizeScale: 100  — 图像归一化
+#   binWidth: 25                          — 直方图 bin 宽度
+#   force2D: true + force2Ddimension: 0   — 强制 2D
+#   symmetricalGLCM: true                 — 对称 GLCM
+#   correctMask: true                     — mask 几何校正
+#   8 种 imageType 滤波器                 — Original/Wavelet/LoG/Square/SquareRoot/Logarithm/Exponential/Gradient
+#   shape2D 特征类                        — 2D 形状特征
+
+setting:
+  resampledPixelSpacing: null
+  interpolator: sitkBSpline
+  preCrop: false
+  normalize: true
+  normalizeScale: 100
+  removeOutliers: null
+  binWidth: 25
+  correctMask: true
+  label: 1
+  force2D: true
+  force2Ddimension: 0
+  symmetricalGLCM: true
+
+imageType:
+  Original: {}
+  Wavelet: {}
+  LoG:
+    sigma: [2.0, 4.0]
+  Square: {}
+  SquareRoot: {}
+  Logarithm: {}
+  Exponential: {}
+  Gradient: {}
+
+featureClass:
+  firstorder: []
+  glcm:
+    - Autocorrelation
+    - JointAverage
+    - ClusterProminence
+    - ClusterShade
+    - ClusterTendency
+    - Contrast
+    - Correlation
+    - DifferenceAverage
+    - DifferenceEntropy
+    - DifferenceVariance
+    - JointEnergy
+    - JointEntropy
+    - Imc1
+    - Imc2
+    - Idm
+    - Idmn
+    - Id
+    - Idn
+    - InverseVariance
+    - MaximumProbability
+    - SumEntropy
+    - SumSquares
+  glrlm: []
+  glszm: []
+  gldm: []
+  ngtdm: []
+  shape2D: []

@@ -34,23 +34,17 @@ else
     echo "[1/3] modelscope CLI 已安装"
 fi
 
-# 2. 检查登录状态
+# 2. 检查登录状态（新版 CLI 无 ms whoami，以 token 或 upload 为准）
 echo "[2/3] 检查 ModelScope 登录状态 ..."
-if ! ms whoami &>/dev/null 2>&1; then
-    echo ""
-    echo "❌ 未登录 ModelScope!"
-    echo ""
-    echo "请先登录（获取 token: https://www.modelscope.cn/my/myaccesstoken）:"
-    echo ""
-    echo "  ms login --token YOUR_TOKEN"
-    echo ""
-    echo "或设置环境变量:"
-    echo ""
-    echo "  export MODELSCOPE_API_TOKEN=YOUR_TOKEN"
-    echo ""
-    exit 1
+if [ -z "${MODELSCOPE_API_TOKEN:-}" ] && [ ! -f "${HOME}/.modelscope/token" ] && [ ! -f "${HOME}/.cache/modelscope/credentials" ]; then
+    if ! ms upload --help &>/dev/null 2>&1; then
+        echo "  modelscope CLI 不可用"
+    fi
+    # 仍尝试上传；未登录时 ms upload 会报错
+    echo "  提示: 若上传失败，请 ms login --token TOKEN 或 export MODELSCOPE_API_TOKEN=..."
+else
+    echo "  检测到 ModelScope 凭据（token 或本地缓存）"
 fi
-echo "  已登录: $(ms whoami 2>/dev/null)"
 
 # 3. Dry-run: 智能分析上传内容
 if $DRY_RUN; then
@@ -148,6 +142,8 @@ ms upload "${REPO_ID}" . \
     --exclude "*.pyo" \
     --exclude "*.so" \
     --exclude "*.zip" \
+    --exclude "*.tar.gz" \
+    --exclude "thyroid_infer_env.tar.gz" \
     --commit-message "${COMMIT_MSG}" \
     --max-workers 4 \
     ${SYNC_FLAG}

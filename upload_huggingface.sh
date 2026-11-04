@@ -49,6 +49,8 @@ EXCLUDES=(
     --exclude ".DS_Store"
     --exclude "*.pyo"
     --exclude "*.so"
+    --exclude "*.tar.gz"
+    --exclude "thyroid_infer_env.tar.gz"
 )
 
 if $DRY_RUN; then

@@ -11,4 +11,4 @@
 | 7 | Full ThyroidXAgent (7) | *not run on NHC* |
 | 8 | Oracle (8) | `oracle/` |
 
-Metrics definitions match `ThyroidCascadeAgent/docs/revision/b3/B3_WAVE1_RESULTS.md`.
+Metrics definitions match the B3 revision wave-1 spec (see maintainer docs / `B3_WAVE1_RESULTS` in engine tree if present).

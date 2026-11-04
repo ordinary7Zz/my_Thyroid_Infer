@@ -82,4 +82,4 @@ pipeline:
     max_images: null
   log_routing: false
   output:
-    output_dir: output/NHC-MISD-TUS/pipeline_run
+    output_dir: results/nhc_routing_ablation/_intermediate/nhc_misd_tus/pipeline_run

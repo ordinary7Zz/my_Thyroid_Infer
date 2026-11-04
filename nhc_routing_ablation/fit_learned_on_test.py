@@ -29,7 +29,7 @@ _PKG = Path(__file__).resolve().parent
 if str(_PKG) not in sys.path:
     sys.path.insert(0, str(_PKG))
 
-from paths import CASCADE_ROOT, INFER_ROOT  # noqa: E402
+from paths import get_engine_root, INFER_ROOT, ARTIFACTS_ROOT  # noqa: E402
 
 COHORT_DEFAULTS = {
     "tn5k": {
@@ -40,8 +40,12 @@ COHORT_DEFAULTS = {
 }
 
 
-def _load_b3_config(rel_path: str) -> dict:
-    path = CASCADE_ROOT / rel_path
+def _load_b3_config(engine: Path, rel_path: str) -> dict:
+    path = engine / rel_path
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"缺少 B3 配置 {path}（试跑 fit 需在 cascade_engine 内保留 config/revision/b3/ 或改 --cohort）"
+        )
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
@@ -70,20 +74,25 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    if not CASCADE_ROOT.is_dir():
-        print(f"缺少 ThyroidCascadeAgent: {CASCADE_ROOT}", file=sys.stderr)
+    engine = get_engine_root()
+    if not (engine / "run_pipeline.py").is_file():
+        print(f"缺少 cascade_engine: {engine}", file=sys.stderr)
         return 1
 
     meta = COHORT_DEFAULTS[args.cohort]
-    cfg = _load_b3_config(meta["b3_config"])
+    try:
+        cfg = _load_b3_config(engine, meta["b3_config"])
+    except FileNotFoundError as e:
+        print(e, file=sys.stderr)
+        return 1
     cfg = _patch_for_test_fit(cfg, artifact_subdir=meta["artifact_subdir"])
 
     inter_rel = args.intermediate or meta["test_intermediate"]
-    inter_path = (CASCADE_ROOT / inter_rel).resolve()
+    inter_path = (engine / inter_rel).resolve()
     if not inter_path.is_dir():
         print(
             f"缺少 test intermediate: {inter_path}\n"
-            f"请先: cd {CASCADE_ROOT} && python run_pipeline.py --config config/... --stop-after-phase2",
+            f"请先: cd {engine} && python run_pipeline.py --config ... --stop-after-phase2",
             file=sys.stderr,
         )
         return 1
@@ -94,7 +103,7 @@ def main() -> int:
     with open(fit_cfg_path, "w", encoding="utf-8") as f:
         yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
 
-    artifact_dir = CASCADE_ROOT / meta["artifact_subdir"]
+    artifact_dir = (ARTIFACTS_ROOT / meta["artifact_subdir"].replace("artifacts/", "", 1)).resolve()
     artifact_dir.mkdir(parents=True, exist_ok=True)
 
     cmd = [
@@ -115,11 +124,11 @@ def main() -> int:
         return 0
 
     env = os.environ.copy()
-    root = str(CASCADE_ROOT)
+    root = str(engine)
     prev = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = root if not prev else f"{root}{os.pathsep}{prev}"
 
-    subprocess.check_call(cmd, cwd=str(CASCADE_ROOT), env=env)
+    subprocess.check_call(cmd, cwd=str(engine), env=env)
 
     summary_path = artifact_dir / "fit_on_test_summary.json"
     with open(summary_path, "w", encoding="utf-8") as f:
